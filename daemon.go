@@ -25,6 +25,8 @@ func build() {
 
 	cmd := exec.Command("go", "build")
 
+	cmd.Dir = *flag_directory
+
 	output, err := cmd.Output()
 
 	if err == nil {
