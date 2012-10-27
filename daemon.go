@@ -31,7 +31,7 @@ func build() {
 
 	cmd.Dir = *flag_directory
 
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 
 	if err == nil {
 		log.Println("Build ok.")
