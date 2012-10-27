@@ -27,7 +27,7 @@ var (
 
 
 // Run `go build` and print the output if something's gone wrong.
-func build() {
+func build() bool {
 	log.Println("Running build command!")
 
 	cmd := exec.Command("go", "build")
@@ -41,6 +41,8 @@ func build() {
 	} else {
 		log.Println("Error while building:\n",string(output))
 	}
+
+	return err == nil
 }
 
 func matchesPattern(pattern *regexp.Regexp, file string) bool {
@@ -56,11 +58,11 @@ func builder(jobs <-chan string, buildDone chan<- bool) {
 	for {
 		<-jobs
 
-		build()
-
-		select{
-		case buildDone <- true:
-		default:
+		if build() {
+			select{
+			case buildDone <- true:
+			default:
+			}
 		}
 
 		<-ticker
