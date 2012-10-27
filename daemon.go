@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"regexp"
 	"time"
+	"path/filepath"
 	"github.com/howeyc/fsnotify"
 )
 
@@ -15,9 +16,12 @@ const WorkDelay = 5
 // Pattern to match files which trigger a build
 const FilePattern = `(.+\.go|.+\.c)$`
 
-var flag_directory = flag.String("directory", "", "Directory to watch for changes")
+var (
+	flag_directory = flag.String("directory", "", "Directory to watch for changes")
+	flag_pattern = flag.String("pattern", FilePattern, "Pattern of watched files")
+	flag_recursive = flag.Bool("recursive", true, "Watch all dirs. recursively")
+)
 
-var flag_pattern = flag.String("pattern", FilePattern, "Pattern of watched files")
 
 // Run `go build` and print the output if something's gone wrong.
 func build() {
@@ -65,10 +69,20 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = watcher.Watch(*flag_directory)
+	if *flag_recursive == true {
+		filepath.Walk(*flag_directory, func(path string, info os.FileInfo, err error) error {
+			if err == nil && info.IsDir() {
+				return watcher.Watch(path)
+			}
+			return err
+		})
 
-	if err != nil {
-		log.Fatal(err)
+	} else {
+		err := watcher.Watch(*flag_directory)
+
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	pattern := regexp.MustCompile(*flag_pattern)
