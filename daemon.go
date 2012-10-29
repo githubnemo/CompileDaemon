@@ -1,18 +1,18 @@
 package main
 
 import (
-	"log"
+	"bufio"
 	"flag"
+	"github.com/howeyc/fsnotify"
+	"io"
+	"log"
 	"os"
 	"os/exec"
-	"io"
-	"bufio"
-	"strings"
-	"regexp"
-	"time"
-	"syscall"
 	"path/filepath"
-	"github.com/howeyc/fsnotify"
+	"regexp"
+	"strings"
+	"syscall"
+	"time"
 )
 
 // Seconds to wait for the next job to begin
@@ -23,11 +23,10 @@ const FilePattern = `(.+\.go|.+\.c)$`
 
 var (
 	flag_directory = flag.String("directory", "", "Directory to watch for changes")
-	flag_pattern = flag.String("pattern", FilePattern, "Pattern of watched files")
-	flag_command = flag.String("command", "", "Command to run and restart after build")
+	flag_pattern   = flag.String("pattern", FilePattern, "Pattern of watched files")
+	flag_command   = flag.String("command", "", "Command to run and restart after build")
 	flag_recursive = flag.Bool("recursive", true, "Watch all dirs. recursively")
 )
-
 
 // Run `go build` and print the output if something's gone wrong.
 func build() bool {
@@ -42,7 +41,7 @@ func build() bool {
 	if err == nil {
 		log.Println("Build ok.")
 	} else {
-		log.Println("Error while building:\n",string(output))
+		log.Println("Error while building:\n", string(output))
 	}
 
 	return err == nil
@@ -62,7 +61,7 @@ func builder(jobs <-chan string, buildDone chan<- bool) {
 		<-jobs
 
 		if build() {
-			select{
+			select {
 			case buildDone <- true:
 			default:
 			}
@@ -72,12 +71,12 @@ func builder(jobs <-chan string, buildDone chan<- bool) {
 	}
 }
 
-
 func logger(stdoutChan <-chan io.ReadCloser) {
 	dumper := func(pipe io.ReadCloser, prefix string) {
 		reader := bufio.NewReader(pipe)
 
-		readloop: for {
+	readloop:
+		for {
 			line, err := reader.ReadString('\n')
 
 			if err != nil {
@@ -91,14 +90,13 @@ func logger(stdoutChan <-chan io.ReadCloser) {
 	for {
 		pipe := <-stdoutChan
 
-		go dumper(pipe,"stdout:")
+		go dumper(pipe, "stdout:")
 
 		pipe = <-stdoutChan
 
-		go dumper(pipe,"stderr:")
+		go dumper(pipe, "stderr:")
 	}
 }
-
 
 // Run the command in the given string and restart it after
 // a message was received on the buildDone channel.
@@ -196,8 +194,8 @@ func main() {
 		case ev := <-watcher.Event:
 			if ev.Name != "" && matchesPattern(pattern, ev.Name) {
 				select {
-					case jobs <- ev.Name:
-					default:
+				case jobs <- ev.Name:
+				default:
 				}
 			}
 		case err := <-watcher.Error:
