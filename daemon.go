@@ -5,9 +5,12 @@ import (
 	"flag"
 	"os"
 	"os/exec"
+	"io"
+	"bufio"
 	"strings"
 	"regexp"
 	"time"
+	"syscall"
 	"path/filepath"
 	"github.com/howeyc/fsnotify"
 )
@@ -69,10 +72,42 @@ func builder(jobs <-chan string, buildDone chan<- bool) {
 	}
 }
 
+
+func logger(stdoutChan <-chan io.ReadCloser) {
+	dumper := func(pipe io.ReadCloser, prefix string) {
+		reader := bufio.NewReader(pipe)
+
+		readloop: for {
+			line, err := reader.ReadString('\n')
+
+			if err != nil {
+				break readloop
+			}
+
+			log.Print(prefix, " ", line)
+		}
+	}
+
+	for {
+		pipe := <-stdoutChan
+
+		go dumper(pipe,"stdout:")
+
+		pipe = <-stdoutChan
+
+		go dumper(pipe,"stderr:")
+	}
+}
+
+
 // Run the command in the given string and restart it after
 // a message was received on the buildDone channel.
 func runner(command string, buildDone chan bool) {
 	var currentProcess *os.Process
+
+	stdoutChan := make(chan io.ReadCloser)
+
+	go logger(stdoutChan)
 
 	for {
 		args := strings.Split(command, " ")
@@ -82,12 +117,29 @@ func runner(command string, buildDone chan bool) {
 			err := currentProcess.Kill()
 
 			if err != nil {
-				log.Fatal("Could not kill child process. Aborting due to danger infinite forks.")
+				log.Fatal("Could not kill child process. Aborting due to danger of infinite forks.")
 			}
 		}
 
 		log.Println("Restarting the given command.")
-		err := cmd.Start()
+
+		pipe, err := cmd.StdoutPipe()
+
+		if err != nil {
+			log.Fatal("Can't get stdout pipe for command:", err)
+		}
+
+		stdoutChan <- pipe
+
+		pipe, err = cmd.StderrPipe()
+
+		if err != nil {
+			log.Fatal("Can't get stderr pipe for command:", err)
+		}
+
+		stdoutChan <- pipe
+
+		err = cmd.Start()
 
 		if err != nil {
 			log.Println("Error while running command:", err)
@@ -110,18 +162,22 @@ func main() {
 	}
 
 	if *flag_recursive == true {
-		filepath.Walk(*flag_directory, func(path string, info os.FileInfo, err error) error {
+		err = filepath.Walk(*flag_directory, func(path string, info os.FileInfo, err error) error {
 			if err == nil && info.IsDir() {
 				return watcher.Watch(path)
 			}
 			return err
 		})
 
+		if err != nil {
+			log.Fatal("filepath.Walk():", err)
+		}
+
 	} else {
 		err := watcher.Watch(*flag_directory)
 
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("watcher.Watch():", err)
 		}
 	}
 
@@ -145,7 +201,10 @@ func main() {
 				}
 			}
 		case err := <-watcher.Error:
-			log.Fatal(err)
+			if err == syscall.EINTR {
+				continue
+			}
+			log.Fatal("watcher.Error:", err)
 		}
 	}
 }
