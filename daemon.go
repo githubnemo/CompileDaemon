@@ -191,6 +191,7 @@ func main() {
 
 	for {
 		select {
+
 		case ev := <-watcher.Event:
 			if ev.Name != "" && matchesPattern(pattern, ev.Name) {
 				select {
@@ -198,9 +199,13 @@ func main() {
 				default:
 				}
 			}
+
 		case err := <-watcher.Error:
-			if err == syscall.EINTR {
-				continue
+			if v, ok := err.(*os.SyscallError); ok {
+				if v.Err == syscall.EINTR {
+					continue
+				}
+				log.Fatal("watcher.Error: SyscallError:", v)
 			}
 			log.Fatal("watcher.Error:", err)
 		}
