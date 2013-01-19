@@ -179,9 +179,9 @@ func main() {
 		}
 	}
 
-	pattern		:= regexp.MustCompile(*flag_pattern)
-	jobs		:= make(chan string)
-	buildDone	:= make(chan bool)
+	pattern := regexp.MustCompile(*flag_pattern)
+	jobs := make(chan string)
+	buildDone := make(chan bool)
 
 	go builder(jobs, buildDone)
 
