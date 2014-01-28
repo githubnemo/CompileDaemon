@@ -111,6 +111,8 @@ func runner(command string, buildDone chan bool) {
 	go logger(stdoutChan)
 
 	for {
+		<-buildDone
+
 		args := strings.Split(command, " ")
 		cmd := exec.Command(args[0], args[1:]...)
 
@@ -147,7 +149,11 @@ func runner(command string, buildDone chan bool) {
 		}
 
 		currentProcess = cmd.Process
+	}
+}
 
+func flusher(buildDone <-chan bool) {
+	for {
 		<-buildDone
 	}
 }
@@ -156,11 +162,12 @@ func main() {
 	flag.Parse()
 
 	watcher, err := fsnotify.NewWatcher()
-	defer watcher.Close()
 
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	defer watcher.Close()
 
 	if *flag_recursive == true {
 		err = filepath.Walk(*flag_directory, func(path string, info os.FileInfo, err error) error {
@@ -190,17 +197,15 @@ func main() {
 
 	if *flag_command != "" {
 		go runner(*flag_command, buildDone)
+	} else {
+		go flusher(buildDone)
 	}
 
 	for {
 		select {
-
 		case ev := <-watcher.Event:
 			if ev.Name != "" && matchesPattern(pattern, ev.Name) {
-				select {
-				case jobs <- ev.Name:
-				default:
-				}
+				jobs <- ev.Name
 			}
 
 		case err := <-watcher.Error:
