@@ -16,7 +16,7 @@ import (
 )
 
 // Seconds to wait for the next job to begin
-const WorkDelay = 5
+const WorkDelay = 900
 
 // Pattern to match files which trigger a build
 const FilePattern = `(.+\.go|.+\.c)$`
@@ -51,23 +51,26 @@ func matchesPattern(pattern *regexp.Regexp, file string) bool {
 	return pattern.MatchString(file)
 }
 
-// Call `build()` periodically (every WorkDelay seconds) if
-// there are any jobs to do. Jobs are detected and fed by the
-// FS watcher.
+
+// Accept build jobs and start building when there are no jobs rushing in.
+// The inrush protection is WorkDelay milliseconds long, in this period
+// every incoming job will reset the timer.
 func builder(jobs <-chan string, buildDone chan<- bool) {
-	ticker := time.Tick(time.Duration(WorkDelay * 1e9))
+	createThreshold := func() <-chan time.Time {
+		return time.After(time.Duration(WorkDelay * time.Millisecond))
+	}
+
+	threshold := createThreshold()
 
 	for {
-		<-jobs
-
-		if build() {
-			select {
-			case buildDone <- true:
-			default:
+		select {
+		case <-jobs:
+			threshold = createThreshold()
+		case <-threshold:
+			if build() {
+				buildDone <- true
 			}
 		}
-
-		<-ticker
 	}
 }
 
