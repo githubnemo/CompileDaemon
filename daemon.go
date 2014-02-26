@@ -15,10 +15,10 @@ import (
 	"time"
 )
 
-// Seconds to wait for the next job to begin
+// Milliseconds to wait for the next job to begin after a file change
 const WorkDelay = 900
 
-// Pattern to match files which trigger a build
+// Default pattern to match files which trigger a build
 const FilePattern = `(.+\.go|.+\.c)$`
 
 var (
