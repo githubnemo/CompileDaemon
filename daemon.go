@@ -27,13 +27,20 @@ var (
 	flag_pattern   = flag.String("pattern", FilePattern, "Pattern of watched files")
 	flag_command   = flag.String("command", "", "Command to run and restart after build")
 	flag_recursive = flag.Bool("recursive", true, "Watch all dirs. recursively")
+	flag_build     = flag.String("build","go build", "Command to rebuild after changes")
 )
 
 // Run `go build` and print the output if something's gone wrong.
 func build() bool {
 	log.Println("Running build command!")
 
-	cmd := exec.Command("go", "build")
+	args := strings.Split(*flag_build, " ")
+	if len(args)==0 {
+		// If the user has specified and empty then we are done.
+		return true
+	}
+
+	cmd := exec.Command(args[0], args[1:]...)
 
 	cmd.Dir = *flag_directory
 
