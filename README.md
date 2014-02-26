@@ -6,3 +6,13 @@ a file changed. Nothing more.
 Usage:
 
 	$ ./CompileDaemon -directory=yourproject/
+
+## Command Line Options
+
+Option    | Default     | Description
+--------- | ----------- | -----------
+`-build=…`   | go build    | Specify the command to run when rebuilding is required.
+`-command=…` | *none*      | Specify the command to run after a succesful build. The default is to run nothing.
+`-directory=…` | *required* | Which directory to watch. This is required.
+`-pattern=…` | (.+\.go&#124;.+\.c)$ | A regular expression which matches the files to watch. The default watches *.go* and *.c* files.
+`-recursive=…` | true      | Recurse down the specified directory
