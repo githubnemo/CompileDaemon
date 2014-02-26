@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"flag"
+	"fmt"
 	"github.com/howeyc/fsnotify"
 	"io"
 	"log"
@@ -168,6 +169,11 @@ func main() {
 	}
 
 	defer watcher.Close()
+
+	if *flag_directory == "" {
+		fmt.Fprintf(os.Stderr, "-directory=... is required.\n")
+		os.Exit(1)
+	}
 
 	if *flag_recursive == true {
 		err = filepath.Walk(*flag_directory, func(path string, info os.FileInfo, err error) error {
