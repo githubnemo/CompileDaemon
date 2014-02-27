@@ -22,7 +22,7 @@ const WorkDelay = 900
 const FilePattern = `(.+\.go|.+\.c)$`
 
 var (
-	flag_directory = flag.String("directory", "", "Directory to watch for changes")
+	flag_directory = flag.String("directory", ".", "Directory to watch for changes")
 	flag_pattern   = flag.String("pattern", FilePattern, "Pattern of watched files")
 	flag_command   = flag.String("command", "", "Command to run and restart after build")
 	flag_recursive = flag.Bool("recursive", true, "Watch all dirs. recursively")
@@ -50,7 +50,6 @@ func build() bool {
 func matchesPattern(pattern *regexp.Regexp, file string) bool {
 	return pattern.MatchString(file)
 }
-
 
 // Accept build jobs and start building when there are no jobs rushing in.
 // The inrush protection is WorkDelay milliseconds long, in this period
