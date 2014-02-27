@@ -169,6 +169,11 @@ func flusher(buildDone <-chan bool) {
 func main() {
 	flag.Parse()
 
+	if *flag_directory == "" {
+		fmt.Fprintf(os.Stderr, "-directory=... is required.\n")
+		os.Exit(1)
+	}
+
 	watcher, err := fsnotify.NewWatcher()
 
 	if err != nil {
@@ -176,11 +181,6 @@ func main() {
 	}
 
 	defer watcher.Close()
-
-	if *flag_directory == "" {
-		fmt.Fprintf(os.Stderr, "-directory=... is required.\n")
-		os.Exit(1)
-	}
 
 	if *flag_recursive == true {
 		err = filepath.Walk(*flag_directory, func(path string, info os.FileInfo, err error) error {
