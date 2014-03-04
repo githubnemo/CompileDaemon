@@ -13,6 +13,6 @@ Option    | Default     | Description
 --------- | ----------- | -----------
 `-build=…`   | go build    | Specify the command to run when rebuilding is required.
 `-command=…` | *none*      | Specify the command to run after a succesful build. The default is to run nothing. This command is issued with the working directory set to -directory.
-`-directory=…` | *required* | Which directory to watch. This is required.
+`-directory=…` | . | Which directory to watch.
 `-pattern=…` | (.+\.go&#124;.+\.c)$ | A regular expression which matches the files to watch. The default watches *.go* and *.c* files.
 `-recursive=…` | true      | Recurse down the specified directory
