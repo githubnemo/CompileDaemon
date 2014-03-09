@@ -130,15 +130,11 @@ func runner(command string, buildDone chan bool) {
 				log.Fatal("Could not kill child process. Aborting due to danger of infinite forks.")
 			}
 
-			// Leave a thread around to read the exit status, this keeps the process from staying
-			// as a zombie. It looks like currentProcess.Release() should do this, but it isn't happening for me.
-			go func(p *os.Process) {
-				// If the process has ignored the KILL, we block here forever. Might want a timeout
-				_, err := p.Wait()
-				if err != nil {
-					log.Fatal("Failed to wait for killed command.")
-				}
-			}(currentProcess)
+			_,werr := currentProcess.Wait()
+
+			if werr != nil {
+				log.Fatal("Could not wait for child process. Aborting due to danger of infinite forks.")
+			}
 		}
 
 		log.Println("Restarting the given command.")
