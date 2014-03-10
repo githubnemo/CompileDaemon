@@ -129,6 +129,12 @@ func runner(command string, buildDone chan bool) {
 			if err != nil {
 				log.Fatal("Could not kill child process. Aborting due to danger of infinite forks.")
 			}
+
+			_, werr := currentProcess.Wait()
+
+			if werr != nil {
+				log.Fatal("Could not wait for child process. Aborting due to danger of infinite forks.")
+			}
 		}
 
 		log.Println("Restarting the given command.")
