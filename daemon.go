@@ -62,7 +62,7 @@ func matchesPattern(pattern *regexp.Regexp, file string) bool {
 // Accept build jobs and start building when there are no jobs rushing in.
 // The inrush protection is WorkDelay milliseconds long, in this period
 // every incoming job will reset the timer.
-func builder(jobs <-chan string, buildDone chan<- bool) {
+func builder(jobs <-chan string, buildDone chan<- struct{}) {
 	createThreshold := func() <-chan time.Time {
 		return time.After(time.Duration(WorkDelay * time.Millisecond))
 	}
@@ -75,7 +75,7 @@ func builder(jobs <-chan string, buildDone chan<- bool) {
 			threshold = createThreshold()
 		case <-threshold:
 			if build() {
-				buildDone <- true
+				buildDone <- struct{}{}
 			}
 		}
 	}
@@ -131,7 +131,7 @@ func startCommand(command string) (cmd *exec.Cmd, stdout io.ReadCloser, stderr i
 
 // Run the command in the given string and restart it after
 // a message was received on the buildDone channel.
-func runner(command string, buildDone chan bool) {
+func runner(command string, buildDone <-chan struct{}) {
 	var currentProcess *os.Process
 	pipeChan := make(chan io.ReadCloser)
 
@@ -160,7 +160,7 @@ func runner(command string, buildDone chan bool) {
 	}
 }
 
-func flusher(buildDone <-chan bool) {
+func flusher(buildDone <-chan struct{}) {
 	for {
 		<-buildDone
 	}
@@ -195,16 +195,14 @@ func main() {
 		}
 
 	} else {
-		err := watcher.Watch(*flag_directory)
-
-		if err != nil {
+		if err := watcher.Watch(*flag_directory); err != nil {
 			log.Fatal("watcher.Watch():", err)
 		}
 	}
 
 	pattern := regexp.MustCompile(*flag_pattern)
 	jobs := make(chan string)
-	buildDone := make(chan bool)
+	buildDone := make(chan struct{})
 
 	go builder(jobs, buildDone)
 
