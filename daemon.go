@@ -81,7 +81,7 @@ func builder(jobs <-chan string, buildDone chan<- bool) {
 	}
 }
 
-func logger(stdoutChan <-chan io.ReadCloser) {
+func logger(pipeChan <-chan io.ReadCloser) {
 	dumper := func(pipe io.ReadCloser, prefix string) {
 		reader := bufio.NewReader(pipe)
 
@@ -98,12 +98,10 @@ func logger(stdoutChan <-chan io.ReadCloser) {
 	}
 
 	for {
-		pipe := <-stdoutChan
-
+		pipe := <-pipeChan
 		go dumper(pipe, "stdout:")
 
-		pipe = <-stdoutChan
-
+		pipe = <-pipeChan
 		go dumper(pipe, "stderr:")
 	}
 }
@@ -113,9 +111,9 @@ func logger(stdoutChan <-chan io.ReadCloser) {
 func runner(command string, buildDone chan bool) {
 	var currentProcess *os.Process
 
-	stdoutChan := make(chan io.ReadCloser)
+	pipeChan := make(chan io.ReadCloser)
 
-	go logger(stdoutChan)
+	go logger(pipeChan)
 
 	for {
 		<-buildDone
@@ -139,7 +137,7 @@ func runner(command string, buildDone chan bool) {
 			log.Fatal("Can't get stdout pipe for command:", err)
 		}
 
-		stdoutChan <- pipe
+		pipeChan <- pipe
 
 		pipe, err = cmd.StderrPipe()
 
@@ -147,7 +145,7 @@ func runner(command string, buildDone chan bool) {
 			log.Fatal("Can't get stderr pipe for command:", err)
 		}
 
-		stdoutChan <- pipe
+		pipeChan <- pipe
 
 		err = cmd.Start()
 
