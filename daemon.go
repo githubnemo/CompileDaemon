@@ -130,7 +130,7 @@ func runner(command string, buildDone chan bool) {
 				log.Fatal("Could not kill child process. Aborting due to danger of infinite forks.")
 			}
 
-			_,werr := currentProcess.Wait()
+			_, werr := currentProcess.Wait()
 
 			if werr != nil {
 				log.Fatal("Could not wait for child process. Aborting due to danger of infinite forks.")
