@@ -106,11 +106,33 @@ func logger(pipeChan <-chan io.ReadCloser) {
 	}
 }
 
+// Start the supplied command and return stdout and stderr pipes for logging.
+func startCommand(command string) (cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, err error) {
+	args := strings.Split(command, " ")
+	cmd = exec.Command(args[0], args[1:]...)
+
+	if stdout, err = cmd.StdoutPipe(); err != nil {
+		err = fmt.Errorf("can't get stdout pipe for command: %s", err)
+		return
+	}
+
+	if stderr, err = cmd.StderrPipe(); err != nil {
+		err = fmt.Errorf("can't get stderr pipe for command: %s", err)
+		return
+	}
+
+	if err = cmd.Start(); err != nil {
+		err = fmt.Errorf("can't start command: %s", err)
+		return
+	}
+
+	return
+}
+
 // Run the command in the given string and restart it after
 // a message was received on the buildDone channel.
 func runner(command string, buildDone chan bool) {
 	var currentProcess *os.Process
-
 	pipeChan := make(chan io.ReadCloser)
 
 	go logger(pipeChan)
@@ -118,40 +140,21 @@ func runner(command string, buildDone chan bool) {
 	for {
 		<-buildDone
 
-		args := strings.Split(command, " ")
-		cmd := exec.Command(args[0], args[1:]...)
-
 		if currentProcess != nil {
-			err := currentProcess.Kill()
-
-			if err != nil {
+			if err := currentProcess.Kill(); err != nil {
 				log.Fatal("Could not kill child process. Aborting due to danger of infinite forks.")
 			}
 		}
 
 		log.Println("Restarting the given command.")
-
-		pipe, err := cmd.StdoutPipe()
-
-		if err != nil {
-			log.Fatal("Can't get stdout pipe for command:", err)
-		}
-
-		pipeChan <- pipe
-
-		pipe, err = cmd.StderrPipe()
+		cmd, stdoutPipe, stderrPipe, err := startCommand(command)
 
 		if err != nil {
-			log.Fatal("Can't get stderr pipe for command:", err)
+			log.Fatal("Could not start command:", err)
 		}
 
-		pipeChan <- pipe
-
-		err = cmd.Start()
-
-		if err != nil {
-			log.Println("Error while running command:", err)
-		}
+		pipeChan <- stdoutPipe
+		pipeChan <- stderrPipe
 
 		currentProcess = cmd.Process
 	}
