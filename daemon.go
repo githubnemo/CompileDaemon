@@ -62,7 +62,7 @@ func matchesPattern(pattern *regexp.Regexp, file string) bool {
 // Accept build jobs and start building when there are no jobs rushing in.
 // The inrush protection is WorkDelay milliseconds long, in this period
 // every incoming job will reset the timer.
-func builder(jobs <-chan string, buildDone chan<- bool) {
+func builder(jobs <-chan string, buildDone chan<- struct{}) {
 	createThreshold := func() <-chan time.Time {
 		return time.After(time.Duration(WorkDelay * time.Millisecond))
 	}
@@ -75,13 +75,13 @@ func builder(jobs <-chan string, buildDone chan<- bool) {
 			threshold = createThreshold()
 		case <-threshold:
 			if build() {
-				buildDone <- true
+				buildDone <- struct{}{}
 			}
 		}
 	}
 }
 
-func logger(stdoutChan <-chan io.ReadCloser) {
+func logger(pipeChan <-chan io.ReadCloser) {
 	dumper := func(pipe io.ReadCloser, prefix string) {
 		reader := bufio.NewReader(pipe)
 
@@ -98,35 +98,50 @@ func logger(stdoutChan <-chan io.ReadCloser) {
 	}
 
 	for {
-		pipe := <-stdoutChan
-
+		pipe := <-pipeChan
 		go dumper(pipe, "stdout:")
 
-		pipe = <-stdoutChan
-
+		pipe = <-pipeChan
 		go dumper(pipe, "stderr:")
 	}
 }
 
+// Start the supplied command and return stdout and stderr pipes for logging.
+func startCommand(command string) (cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, err error) {
+	args := strings.Split(command, " ")
+	cmd = exec.Command(args[0], args[1:]...)
+
+	if stdout, err = cmd.StdoutPipe(); err != nil {
+		err = fmt.Errorf("can't get stdout pipe for command: %s", err)
+		return
+	}
+
+	if stderr, err = cmd.StderrPipe(); err != nil {
+		err = fmt.Errorf("can't get stderr pipe for command: %s", err)
+		return
+	}
+
+	if err = cmd.Start(); err != nil {
+		err = fmt.Errorf("can't start command: %s", err)
+		return
+	}
+
+	return
+}
+
 // Run the command in the given string and restart it after
 // a message was received on the buildDone channel.
-func runner(command string, buildDone chan bool) {
+func runner(command string, buildDone <-chan struct{}) {
 	var currentProcess *os.Process
+	pipeChan := make(chan io.ReadCloser)
 
-	stdoutChan := make(chan io.ReadCloser)
-
-	go logger(stdoutChan)
+	go logger(pipeChan)
 
 	for {
 		<-buildDone
 
-		args := strings.Split(command, " ")
-		cmd := exec.Command(args[0], args[1:]...)
-
 		if currentProcess != nil {
-			err := currentProcess.Kill()
-
-			if err != nil {
+			if err := currentProcess.Kill(); err != nil {
 				log.Fatal("Could not kill child process. Aborting due to danger of infinite forks.")
 			}
 
@@ -138,34 +153,20 @@ func runner(command string, buildDone chan bool) {
 		}
 
 		log.Println("Restarting the given command.")
-
-		pipe, err := cmd.StdoutPipe()
-
-		if err != nil {
-			log.Fatal("Can't get stdout pipe for command:", err)
-		}
-
-		stdoutChan <- pipe
-
-		pipe, err = cmd.StderrPipe()
+		cmd, stdoutPipe, stderrPipe, err := startCommand(command)
 
 		if err != nil {
-			log.Fatal("Can't get stderr pipe for command:", err)
+			log.Fatal("Could not start command:", err)
 		}
 
-		stdoutChan <- pipe
-
-		err = cmd.Start()
-
-		if err != nil {
-			log.Println("Error while running command:", err)
-		}
+		pipeChan <- stdoutPipe
+		pipeChan <- stderrPipe
 
 		currentProcess = cmd.Process
 	}
 }
 
-func flusher(buildDone <-chan bool) {
+func flusher(buildDone <-chan struct{}) {
 	for {
 		<-buildDone
 	}
@@ -200,16 +201,14 @@ func main() {
 		}
 
 	} else {
-		err := watcher.Watch(*flag_directory)
-
-		if err != nil {
+		if err := watcher.Watch(*flag_directory); err != nil {
 			log.Fatal("watcher.Watch():", err)
 		}
 	}
 
 	pattern := regexp.MustCompile(*flag_pattern)
 	jobs := make(chan string)
-	buildDone := make(chan bool)
+	buildDone := make(chan struct{})
 
 	go builder(jobs, buildDone)
 
