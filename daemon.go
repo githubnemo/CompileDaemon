@@ -1,3 +1,51 @@
+/* 
+CompileDaemon is a very simple compile daemon for Go.
+
+CompileDaemon watches your .go files in a directory and invokes `go build`
+if a file changes.
+
+Examples
+
+In its simplest form, the defaults will do. With the current working directory set 
+to the source directory you can simply…
+
+    $ CompileDaemon
+
+… and it will recompile your code whenever you save a source file.
+
+If you want it to also run your program each time it builds you might add…
+
+    $ CompileDaemon -command="./MyProgram -my-options"
+
+… and it will also keep a copy of your program running. Killing the old one and
+starting a new one each time you build.
+
+You may find that you need to exclude some directories and files from
+monitoring, such as a .git repository or emacs temporary files…
+
+    $ CompileDaemon -exclude-dir=.git -exclude=".#*"
+
+If you want to monitor files other than .go and .c files you might…
+
+    $ CompileDaemon -include=Makefile -include="*.less" -include="*.tmpl"
+
+Options
+
+There are command line options.
+
+	FILE SELECTION
+	-directory=XXX    – which directory to monitor for changes
+	-recursive=XXX    – look into subdirectories
+	-exclude-dir=XXX  – exclude directories matching glob pattern XXX
+	-exlude=XXX       – exclude files whose basename matches glob pattern XXX
+	-include=XXX      – include files whose basename matches glob pattern XXX
+	-pattern=XXX      – include files whose path matches regexp XXX
+	
+	ACTIONS
+	-build=CCC        – Execute CCC to rebuild when a file changes
+	-command=CCC      – Run command CCC after a successful build, stops previous command first
+
+*/
 package main
 
 import (
