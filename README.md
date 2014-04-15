@@ -51,7 +51,10 @@ If you want to monitor files other than .go and .c files you might…
 
 ### Too many open files
 
-If you get an error for too many open files, you might wish to exclude your .git, .hg, or similar VCS directories using `-exclude-dir=…`. This is common on OS X and BSD platforms where each watched file consumes a file descriptor. 
+If you get an error for too many open files, you might wish to exclude your .git, .hg, or similar VCS directories using `-exclude-dir=…`. This is common on OS X and BSD platforms where each watched file consumes a file descriptor.
+
+If you still have too many open files, then you need to raise your process's file limit using the `ulimit` command. Something like `ulimit -n 1024` will probably take care of it. There is also a sysctl based limit which you may reach and need to adjust.
+
 
 ## Project Details
 
