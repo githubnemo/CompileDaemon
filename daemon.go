@@ -259,9 +259,7 @@ func main() {
 				base := filepath.Base(ev.Name)
 
 				if includedFiles.Matches(base) || matchesPattern(pattern, ev.Name) {
-					if excludedFiles.Matches(base) {
-						// skip it
-					} else {
+					if !excludedFiles.Matches(base) {
 						jobs <- ev.Name
 					}
 				}
