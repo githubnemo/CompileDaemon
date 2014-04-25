@@ -39,10 +39,8 @@ func (g *globList) Matches(value string) bool {
 	for _, v := range *g {
 		if match, err := filepath.Match(v, value); err != nil {
 			log.Fatalf("Bad pattern \"%s\": %s", v, err.Error())
-		} else {
-			if match {
-				return true
-			}
+		} else if match {
+			return true
 		}
 	}
 	return false
