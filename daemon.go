@@ -22,6 +22,30 @@ const WorkDelay = 900
 // Default pattern to match files which trigger a build
 const FilePattern = `(.+\.go|.+\.c)$`
 
+type globList []string
+
+var excludedDirs globList
+var excludedFiles globList
+var includedFiles globList
+
+func (g *globList) String() string {
+	return fmt.Sprint(*g)
+}
+func (g *globList) Set(value string) error {
+	*g = append(*g, value)
+	return nil
+}
+func (g *globList) Matches(value string) bool {
+	for _, v := range *g {
+		if match, err := filepath.Match(v, value); err != nil {
+			log.Fatalf("Bad pattern \"%s\": %s", v, err.Error())
+		} else if match {
+			return true
+		}
+	}
+	return false
+}
+
 var (
 	flag_directory = flag.String("directory", ".", "Directory to watch for changes")
 	flag_pattern   = flag.String("pattern", FilePattern, "Pattern of watched files")
@@ -173,6 +197,10 @@ func flusher(buildDone <-chan struct{}) {
 }
 
 func main() {
+	flag.Var(&excludedDirs, "exclude-dir", " Don't watch directories matching this name")
+	flag.Var(&excludedFiles, "exclude", " Don't watch files matching this name")
+	flag.Var(&includedFiles, "include", " Watch files matching this name")
+
 	flag.Parse()
 
 	if *flag_directory == "" {
@@ -191,7 +219,11 @@ func main() {
 	if *flag_recursive == true {
 		err = filepath.Walk(*flag_directory, func(path string, info os.FileInfo, err error) error {
 			if err == nil && info.IsDir() {
-				return watcher.Watch(path)
+				if excludedDirs.Matches(info.Name()) {
+					return filepath.SkipDir
+				} else {
+					return watcher.Watch(path)
+				}
 			}
 			return err
 		})
@@ -221,8 +253,14 @@ func main() {
 	for {
 		select {
 		case ev := <-watcher.Event:
-			if ev.Name != "" && matchesPattern(pattern, ev.Name) {
-				jobs <- ev.Name
+			if ev.Name != "" {
+				base := filepath.Base(ev.Name)
+
+				if includedFiles.Matches(base) || matchesPattern(pattern, ev.Name) {
+					if !excludedFiles.Matches(base) {
+						jobs <- ev.Name
+					}
+				}
 			}
 
 		case err := <-watcher.Error:
