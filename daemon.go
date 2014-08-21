@@ -1,4 +1,4 @@
-/* 
+/*
 CompileDaemon is a very simple compile daemon for Go.
 
 CompileDaemon watches your .go files in a directory and invokes `go build`
@@ -6,7 +6,7 @@ if a file changes.
 
 Examples
 
-In its simplest form, the defaults will do. With the current working directory set 
+In its simplest form, the defaults will do. With the current working directory set
 to the source directory you can simply…
 
     $ CompileDaemon
@@ -40,7 +40,7 @@ There are command line options.
 	-exlude=XXX       – exclude files whose basename matches glob pattern XXX
 	-include=XXX      – include files whose basename matches glob pattern XXX
 	-pattern=XXX      – include files whose path matches regexp XXX
-	
+
 	ACTIONS
 	-build=CCC        – Execute CCC to rebuild when a file changes
 	-command=CCC      – Run command CCC after a successful build, stops previous command first

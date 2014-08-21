@@ -22,30 +22,30 @@ Usage:
 |`-include=…` | none | Include files whose last path component matches this glob pattern. You may have multiples of this flag.|
 |`-pattern=…` | (.+\\.go&#124;.+\\.c)$ | A regular expression which matches the files to watch. The default watches *.go* and *.c* files.|
 
-## Examples                                                                                                                               
-                                                                                                                                       
-In its simplest form, the defaults will do. With the current working directory set                                                     
-to the source directory you can simply…                                                                                                
-                                                                                                                                       
-    $ CompileDaemon                                                                                                                    
-                                                                                                                                       
-… and it will recompile your code whenever you save a source file.                                                                     
-                                                                                                                                       
-If you want it to also run your program each time it builds you might add…                                                             
-                                                                                                                                       
-    $ CompileDaemon -command="./MyProgram -my-options"                                                                                 
-                                                                                                                                       
-… and it will also keep a copy of your program running. Killing the old one and                                                        
-starting a new one each time you build.                                                                                                
-                                                                                                                                       
-You may find that you need to exclude some directories and files from                                                                  
-monitoring, such as a .git repository or emacs temporary files…                                                                        
-                                                                                                                                       
-    $ CompileDaemon -exclude-dir=.git -exclude=".#*" …                                                                                  
-                                                                                                                                       
-If you want to monitor files other than .go and .c files you might…                                                                    
-                                                                                                                                       
-    $ CompileDaemon -include=Makefile -include="*.less" -include="*.tmpl"  
+## Examples
+
+In its simplest form, the defaults will do. With the current working directory set
+to the source directory you can simply…
+
+    $ CompileDaemon
+
+… and it will recompile your code whenever you save a source file.
+
+If you want it to also run your program each time it builds you might add…
+
+    $ CompileDaemon -command="./MyProgram -my-options"
+
+… and it will also keep a copy of your program running. Killing the old one and
+starting a new one each time you build.
+
+You may find that you need to exclude some directories and files from
+monitoring, such as a .git repository or emacs temporary files…
+
+    $ CompileDaemon -exclude-dir=.git -exclude=".#*" …
+
+If you want to monitor files other than .go and .c files you might…
+
+    $ CompileDaemon -include=Makefile -include="*.less" -include="*.tmpl"
 
 ## Notes
 
