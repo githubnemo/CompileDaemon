@@ -1,3 +1,51 @@
+/* 
+CompileDaemon is a very simple compile daemon for Go.
+
+CompileDaemon watches your .go files in a directory and invokes `go build`
+if a file changes.
+
+Examples
+
+In its simplest form, the defaults will do. With the current working directory set 
+to the source directory you can simply…
+
+    $ CompileDaemon
+
+… and it will recompile your code whenever you save a source file.
+
+If you want it to also run your program each time it builds you might add…
+
+    $ CompileDaemon -command="./MyProgram -my-options"
+
+… and it will also keep a copy of your program running. Killing the old one and
+starting a new one each time you build.
+
+You may find that you need to exclude some directories and files from
+monitoring, such as a .git repository or emacs temporary files…
+
+    $ CompileDaemon -exclude-dir=.git -exclude=".#*"
+
+If you want to monitor files other than .go and .c files you might…
+
+    $ CompileDaemon -include=Makefile -include="*.less" -include="*.tmpl"
+
+Options
+
+There are command line options.
+
+	FILE SELECTION
+	-directory=XXX    – which directory to monitor for changes
+	-recursive=XXX    – look into subdirectories
+	-exclude-dir=XXX  – exclude directories matching glob pattern XXX
+	-exlude=XXX       – exclude files whose basename matches glob pattern XXX
+	-include=XXX      – include files whose basename matches glob pattern XXX
+	-pattern=XXX      – include files whose path matches regexp XXX
+	
+	ACTIONS
+	-build=CCC        – Execute CCC to rebuild when a file changes
+	-command=CCC      – Run command CCC after a successful build, stops previous command first
+
+*/
 package main
 
 import (
@@ -21,6 +69,30 @@ const WorkDelay = 900
 
 // Default pattern to match files which trigger a build
 const FilePattern = `(.+\.go|.+\.c)$`
+
+type globList []string
+
+var excludedDirs globList
+var excludedFiles globList
+var includedFiles globList
+
+func (g *globList) String() string {
+	return fmt.Sprint(*g)
+}
+func (g *globList) Set(value string) error {
+	*g = append(*g, value)
+	return nil
+}
+func (g *globList) Matches(value string) bool {
+	for _, v := range *g {
+		if match, err := filepath.Match(v, value); err != nil {
+			log.Fatalf("Bad pattern \"%s\": %s", v, err.Error())
+		} else if match {
+			return true
+		}
+	}
+	return false
+}
 
 var (
 	flag_directory = flag.String("directory", ".", "Directory to watch for changes")
@@ -173,6 +245,10 @@ func flusher(buildDone <-chan struct{}) {
 }
 
 func main() {
+	flag.Var(&excludedDirs, "exclude-dir", " Don't watch directories matching this name")
+	flag.Var(&excludedFiles, "exclude", " Don't watch files matching this name")
+	flag.Var(&includedFiles, "include", " Watch files matching this name")
+
 	flag.Parse()
 
 	if *flag_directory == "" {
@@ -191,7 +267,11 @@ func main() {
 	if *flag_recursive == true {
 		err = filepath.Walk(*flag_directory, func(path string, info os.FileInfo, err error) error {
 			if err == nil && info.IsDir() {
-				return watcher.Watch(path)
+				if excludedDirs.Matches(info.Name()) {
+					return filepath.SkipDir
+				} else {
+					return watcher.Watch(path)
+				}
 			}
 			return err
 		})
@@ -221,8 +301,14 @@ func main() {
 	for {
 		select {
 		case ev := <-watcher.Event:
-			if ev.Name != "" && matchesPattern(pattern, ev.Name) {
-				jobs <- ev.Name
+			if ev.Name != "" {
+				base := filepath.Base(ev.Name)
+
+				if includedFiles.Matches(base) || matchesPattern(pattern, ev.Name) {
+					if !excludedFiles.Matches(base) {
+						jobs <- ev.Name
+					}
+				}
 			}
 
 		case err := <-watcher.Error:
