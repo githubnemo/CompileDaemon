@@ -62,6 +62,8 @@ If you still have too many open files, then you need to raise your process's fil
 
 CompileDaemon was written by [githubnemo](https://github.com/githubnemo).
 
+Code and documentation was contributed by [jimstudt](https://github.com/jimstudt).
+
 ### Repository
 
 CompileDaemon is kept at [https://github.com/githubnemo/CompileDaemon](https://github.com/githubnemo/CompileDaemon)
