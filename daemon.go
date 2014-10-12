@@ -260,33 +260,17 @@ func runner(command string, buildDone <-chan struct{}) {
 }
 
 func killProcess(process *os.Process) {
-	// If enabled, attempt to do a graceful shutdown of the child process.
-	done := make(chan error, 1)
-	go func() {
-		if !*flag_gracefulkill {
-			log.Println(okColor("Hard stopping the current process.."))
-			done <- process.Kill()
-			return
-		}
-		log.Println(okColor("Gracefully stopping the current process.."))
-		if err := process.Signal(syscall.SIGTERM); err != nil {
-			done <- err
-			return
-		}
-		_, err := process.Wait()
-		done <- err
-	}()
+	if *flag_gracefulkill {
+		terminateGracefully(process)
+	} else {
+		log.Println(okColor("Hard stopping the current process.."))
 
-	select {
-	case <-time.After(3 * time.Second):
-		log.Println(failColor("Could not gracefully stop the current process, proceeding to hard stop."))
 		if err := process.Kill(); err != nil {
 			log.Fatal(failColor("Could not kill child process. Aborting due to danger of infinite forks."))
 		}
-		<-done
-	case err := <-done:
-		if err != nil {
-			log.Fatal(failColor("Could not kill child process. Aborting due to danger of infinite forks."))
+
+		if _, err := process.Wait(); err != nil {
+			log.Fatal(failColor("Could not wait for child process. Aborting due to danger of infinite forks."))
 		}
 	}
 }
@@ -311,6 +295,10 @@ func main() {
 	if *flag_directory == "" {
 		fmt.Fprintf(os.Stderr, "-directory=... is required.\n")
 		os.Exit(1)
+	}
+
+	if *flag_gracefulkill && !gracefulTerminationPossible() {
+		log.Fatal("Graceful termination is not supported on your platform.")
 	}
 
 	watcher, err := fsnotify.NewWatcher()
