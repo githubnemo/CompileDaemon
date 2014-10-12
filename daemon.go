@@ -281,7 +281,6 @@ func main() {
 
 	if !*flag_logprefix {
 		log.SetFlags(0)
-		log.Println("FOOO")
 	}
 
 	if *flag_directory == "" {
