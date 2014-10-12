@@ -102,6 +102,7 @@ var (
 	flag_recursive = flag.Bool("recursive", true, "Watch all dirs. recursively")
 	flag_build     = flag.String("build", "go build", "Command to rebuild after changes")
 	flag_color     = flag.Bool("color", false, "Colorize output for CompileDaemon status messages")
+	flag_logprefix = flag.Bool("log-prefix", true, "Print log timestamps and subprocess stderr/stdout output")
 )
 
 var (
@@ -188,7 +189,11 @@ func logger(pipeChan <-chan io.ReadCloser) {
 				break readloop
 			}
 
-			log.Print(prefix, " ", line)
+			if *flag_logprefix {
+				log.Print(prefix, " ", line)
+			} else {
+				log.Print(line)
+			}
 		}
 	}
 
@@ -273,6 +278,11 @@ func main() {
 	flag.Var(&includedFiles, "include", " Watch files matching this name")
 
 	flag.Parse()
+
+	if !*flag_logprefix {
+		log.SetFlags(0)
+		log.Println("FOOO")
+	}
 
 	if *flag_directory == "" {
 		fmt.Fprintf(os.Stderr, "-directory=... is required.\n")
