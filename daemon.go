@@ -96,13 +96,14 @@ func (g *globList) Matches(value string) bool {
 }
 
 var (
-	flag_directory = flag.String("directory", ".", "Directory to watch for changes")
-	flag_pattern   = flag.String("pattern", FilePattern, "Pattern of watched files")
-	flag_command   = flag.String("command", "", "Command to run and restart after build")
-	flag_recursive = flag.Bool("recursive", true, "Watch all dirs. recursively")
-	flag_build     = flag.String("build", "go build", "Command to rebuild after changes")
-	flag_color     = flag.Bool("color", false, "Colorize output for CompileDaemon status messages")
-	flag_logprefix = flag.Bool("log-prefix", true, "Print log timestamps and subprocess stderr/stdout output")
+	flag_directory    = flag.String("directory", ".", "Directory to watch for changes")
+	flag_pattern      = flag.String("pattern", FilePattern, "Pattern of watched files")
+	flag_command      = flag.String("command", "", "Command to run and restart after build")
+	flag_recursive    = flag.Bool("recursive", true, "Watch all dirs. recursively")
+	flag_build        = flag.String("build", "go build", "Command to rebuild after changes")
+	flag_color        = flag.Bool("color", false, "Colorize output for CompileDaemon status messages")
+	flag_logprefix    = flag.Bool("log-prefix", true, "Print log timestamps and subprocess stderr/stdout output")
+	flag_gracefulkill = flag.Bool("graceful-kill", false, "Gracefully attempt to kill the child process by sending a SIGTERM first")
 )
 
 var (
@@ -241,14 +242,34 @@ func runner(command string, buildDone <-chan struct{}) {
 		<-buildDone
 
 		if currentProcess != nil {
-			if err := currentProcess.Kill(); err != nil {
-				log.Fatal(failColor("Could not kill child process. Aborting due to danger of infinite forks."))
-			}
+			// If enabled, attempt to do a graceful shutdown of the child process.
+			done := make(chan error, 1)
+			go func() {
+				if !*flag_gracefulkill {
+					log.Println(okColor("Hard stopping the current process.."))
+					done <- currentProcess.Kill()
+					return
+				}
+				log.Println(okColor("Gracefully stopping the current process.."))
+				if err := currentProcess.Signal(syscall.SIGTERM); err != nil {
+					done <- err
+					return
+				}
+				_, err := currentProcess.Wait()
+				done <- err
+			}()
 
-			_, werr := currentProcess.Wait()
-
-			if werr != nil {
-				log.Fatal(failColor("Could not wait for child process. Aborting due to danger of infinite forks."))
+			select {
+			case <-time.After(3 * time.Second):
+				log.Println(failColor("Could not gracefully stop the current process, proceeding to hard stop."))
+				if err := currentProcess.Kill(); err != nil {
+					log.Fatal(failColor("Could not kill child process. Aborting due to danger of infinite forks."))
+				}
+				<-done
+			case err := <-done:
+				if err != nil {
+					log.Fatal(failColor("Could not kill child process. Aborting due to danger of infinite forks."))
+				}
 			}
 		}
 
