@@ -242,35 +242,7 @@ func runner(command string, buildDone <-chan struct{}) {
 		<-buildDone
 
 		if currentProcess != nil {
-			// If enabled, attempt to do a graceful shutdown of the child process.
-			done := make(chan error, 1)
-			go func() {
-				if !*flag_gracefulkill {
-					log.Println(okColor("Hard stopping the current process.."))
-					done <- currentProcess.Kill()
-					return
-				}
-				log.Println(okColor("Gracefully stopping the current process.."))
-				if err := currentProcess.Signal(syscall.SIGTERM); err != nil {
-					done <- err
-					return
-				}
-				_, err := currentProcess.Wait()
-				done <- err
-			}()
-
-			select {
-			case <-time.After(3 * time.Second):
-				log.Println(failColor("Could not gracefully stop the current process, proceeding to hard stop."))
-				if err := currentProcess.Kill(); err != nil {
-					log.Fatal(failColor("Could not kill child process. Aborting due to danger of infinite forks."))
-				}
-				<-done
-			case err := <-done:
-				if err != nil {
-					log.Fatal(failColor("Could not kill child process. Aborting due to danger of infinite forks."))
-				}
-			}
+			killProcess(currentProcess)
 		}
 
 		log.Println(okColor("Restarting the given command."))
@@ -284,6 +256,38 @@ func runner(command string, buildDone <-chan struct{}) {
 		pipeChan <- stderrPipe
 
 		currentProcess = cmd.Process
+	}
+}
+
+func killProcess(process *os.Process) {
+	// If enabled, attempt to do a graceful shutdown of the child process.
+	done := make(chan error, 1)
+	go func() {
+		if !*flag_gracefulkill {
+			log.Println(okColor("Hard stopping the current process.."))
+			done <- process.Kill()
+			return
+		}
+		log.Println(okColor("Gracefully stopping the current process.."))
+		if err := process.Signal(syscall.SIGTERM); err != nil {
+			done <- err
+			return
+		}
+		_, err := process.Wait()
+		done <- err
+	}()
+
+	select {
+	case <-time.After(3 * time.Second):
+		log.Println(failColor("Could not gracefully stop the current process, proceeding to hard stop."))
+		if err := process.Kill(); err != nil {
+			log.Fatal(failColor("Could not kill child process. Aborting due to danger of infinite forks."))
+		}
+		<-done
+	case err := <-done:
+		if err != nil {
+			log.Fatal(failColor("Could not kill child process. Aborting due to danger of infinite forks."))
+		}
 	}
 }
 
