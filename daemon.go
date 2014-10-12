@@ -72,10 +72,6 @@ const FilePattern = `(.+\.go|.+\.c)$`
 
 type globList []string
 
-var excludedDirs globList
-var excludedFiles globList
-var includedFiles globList
-
 func (g *globList) String() string {
 	return fmt.Sprint(*g)
 }
@@ -100,6 +96,11 @@ var (
 	flag_command   = flag.String("command", "", "Command to run and restart after build")
 	flag_recursive = flag.Bool("recursive", true, "Watch all dirs. recursively")
 	flag_build     = flag.String("build", "go build", "Command to rebuild after changes")
+
+	// initialized in main() due to custom type.
+	flag_excludedDirs globList
+	flag_excludedFiles globList
+	flag_includedFiles globList
 )
 
 // Run `go build` and print the output if something's gone wrong.
@@ -245,9 +246,9 @@ func flusher(buildDone <-chan struct{}) {
 }
 
 func main() {
-	flag.Var(&excludedDirs, "exclude-dir", " Don't watch directories matching this name")
-	flag.Var(&excludedFiles, "exclude", " Don't watch files matching this name")
-	flag.Var(&includedFiles, "include", " Watch files matching this name")
+	flag.Var(&flag_excludedDirs, "exclude-dir", " Don't watch directories matching this name")
+	flag.Var(&flag_excludedFiles, "exclude", " Don't watch files matching this name")
+	flag.Var(&flag_includedFiles, "include", " Watch files matching this name")
 
 	flag.Parse()
 
@@ -267,7 +268,7 @@ func main() {
 	if *flag_recursive == true {
 		err = filepath.Walk(*flag_directory, func(path string, info os.FileInfo, err error) error {
 			if err == nil && info.IsDir() {
-				if excludedDirs.Matches(info.Name()) {
+				if flag_excludedDirs.Matches(info.Name()) {
 					return filepath.SkipDir
 				} else {
 					return watcher.Watch(path)
@@ -304,8 +305,8 @@ func main() {
 			if ev.Name != "" {
 				base := filepath.Base(ev.Name)
 
-				if includedFiles.Matches(base) || matchesPattern(pattern, ev.Name) {
-					if !excludedFiles.Matches(base) {
+				if flag_includedFiles.Matches(base) || matchesPattern(pattern, ev.Name) {
+					if !flag_excludedFiles.Matches(base) {
 						jobs <- ev.Name
 					}
 				}
