@@ -10,7 +10,6 @@ import (
 )
 
 func terminateGracefully(process *os.Process) {
-	// If enabled, attempt to do a graceful shutdown of the child process.
 	done := make(chan error, 1)
 	go func() {
 		log.Println(okColor("Gracefully stopping the current process.."))
