@@ -11,5 +11,5 @@ func terminateGracefully(process *os.Process) {
 }
 
 func gracefulTerminationPossible() bool {
-	return true
+	return false
 }
