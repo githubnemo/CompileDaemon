@@ -52,6 +52,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/howeyc/fsnotify"
 	"io"
 	"log"
@@ -100,11 +101,33 @@ var (
 	flag_command   = flag.String("command", "", "Command to run and restart after build")
 	flag_recursive = flag.Bool("recursive", true, "Watch all dirs. recursively")
 	flag_build     = flag.String("build", "go build", "Command to rebuild after changes")
+	flag_color     = flag.Bool("color", false, "Colorize output for CompileDaemon status messages")
 )
+
+var (
+	_okColor   = color.GreenString
+	_failColor = color.RedString
+)
+
+func okColor(format string, args ...interface{}) string {
+	if *flag_color {
+		return _okColor(format, args...)
+	} else {
+		return fmt.Sprintf(format, args...)
+	}
+}
+
+func failColor(format string, args ...interface{}) string {
+	if *flag_color {
+		return _failColor(format, args...)
+	} else {
+		return fmt.Sprintf(format, args...)
+	}
+}
 
 // Run `go build` and print the output if something's gone wrong.
 func build() bool {
-	log.Println("Running build command!")
+	log.Println(okColor("Running build command!"))
 
 	args := strings.Split(*flag_build, " ")
 	if len(args) == 0 {
@@ -119,9 +142,9 @@ func build() bool {
 	output, err := cmd.CombinedOutput()
 
 	if err == nil {
-		log.Println("Build ok.")
+		log.Println(okColor("Build ok."))
 	} else {
-		log.Println("Error while building:\n", string(output))
+		log.Println(failColor("Error while building:\n"), failColor(string(output)))
 	}
 
 	return err == nil
@@ -214,21 +237,21 @@ func runner(command string, buildDone <-chan struct{}) {
 
 		if currentProcess != nil {
 			if err := currentProcess.Kill(); err != nil {
-				log.Fatal("Could not kill child process. Aborting due to danger of infinite forks.")
+				log.Fatal(failColor("Could not kill child process. Aborting due to danger of infinite forks."))
 			}
 
 			_, werr := currentProcess.Wait()
 
 			if werr != nil {
-				log.Fatal("Could not wait for child process. Aborting due to danger of infinite forks.")
+				log.Fatal(failColor("Could not wait for child process. Aborting due to danger of infinite forks."))
 			}
 		}
 
-		log.Println("Restarting the given command.")
+		log.Println(okColor("Restarting the given command."))
 		cmd, stdoutPipe, stderrPipe, err := startCommand(command)
 
 		if err != nil {
-			log.Fatal("Could not start command:", err)
+			log.Fatal(failColor("Could not start command:", err))
 		}
 
 		pipeChan <- stdoutPipe
