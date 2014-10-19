@@ -261,16 +261,46 @@ func runner(command string, buildDone <-chan struct{}) {
 
 func killProcess(process *os.Process) {
 	if *flag_gracefulkill {
-		terminateGracefully(process)
+		killProcessGracefully(process)
 	} else {
-		log.Println(okColor("Hard stopping the current process.."))
+		killProcessHard(process)
+	}
+}
 
+func killProcessHard(process *os.Process) {
+	log.Println(okColor("Hard stopping the current process.."))
+
+	if err := process.Kill(); err != nil {
+		log.Fatal(failColor("Could not kill child process. Aborting due to danger of infinite forks."))
+	}
+
+	if _, err := process.Wait(); err != nil {
+		log.Fatal(failColor("Could not wait for child process. Aborting due to danger of infinite forks."))
+	}
+}
+
+func killProcessGracefully(process *os.Process) {
+	done := make(chan error, 1)
+	go func() {
+		log.Println(okColor("Gracefully stopping the current process.."))
+		if err := terminateGracefully(process); err != nil {
+			done <- err
+			return
+		}
+		_, err := process.Wait()
+		done <- err
+	}()
+
+	select {
+	case <-time.After(3 * time.Second):
+		log.Println(failColor("Could not gracefully stop the current process, proceeding to hard stop."))
 		if err := process.Kill(); err != nil {
 			log.Fatal(failColor("Could not kill child process. Aborting due to danger of infinite forks."))
 		}
-
-		if _, err := process.Wait(); err != nil {
-			log.Fatal(failColor("Could not wait for child process. Aborting due to danger of infinite forks."))
+		<-done
+	case err := <-done:
+		if err != nil {
+			log.Fatal(failColor("Could not kill child process. Aborting due to danger of infinite forks."))
 		}
 	}
 }

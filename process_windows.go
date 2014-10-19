@@ -1,11 +1,12 @@
 package main
 
 import (
-	"log"
+	"errors"
+	"os"
 )
 
-func terminateGracefully(process *os.Process) {
-	log.Fatal("Attempting to terminate gracefully on Windows is not supported.")
+func terminateGracefully(process *os.Process) error {
+	return errors.New("terminateGracefully not implemented on windows")
 }
 
 func gracefulTerminationPossible() bool {
