@@ -41,6 +41,11 @@ There are command line options.
 	-include=XXX      – include files whose basename matches glob pattern XXX
 	-pattern=XXX      – include files whose path matches regexp XXX
 
+	MISC
+	-color            - enable colorized output
+	-log-prefix       - Enable/disable stdout/stderr labelling for the child process
+	-graceful-kill    - On supported platforms, send the child process a SIGTERM to
+	                    allow it to exit gracefully if possible.
 	ACTIONS
 	-build=CCC        – Execute CCC to rebuild when a file changes
 	-command=CCC      – Run command CCC after a successful build, stops previous command first
