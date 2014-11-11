@@ -299,9 +299,7 @@ func killProcessGracefully(process *os.Process) {
 	select {
 	case <-time.After(3 * time.Second):
 		log.Println(failColor("Could not gracefully stop the current process, proceeding to hard stop."))
-		if err := process.Kill(); err != nil {
-			log.Fatal(failColor("Could not kill child process. Aborting due to danger of infinite forks."))
-		}
+		killProcessHard(process)
 		<-done
 	case err := <-done:
 		if err != nil {
