@@ -111,14 +111,9 @@ var (
 	flag_gracefulkill = flag.Bool("graceful-kill", false, "Gracefully attempt to kill the child process by sending a SIGTERM first")
 )
 
-var (
-	_okColor   = color.GreenString
-	_failColor = color.RedString
-)
-
 func okColor(format string, args ...interface{}) string {
 	if *flag_color {
-		return _okColor(format, args...)
+		return color.GreenString(format, args...)
 	} else {
 		return fmt.Sprintf(format, args...)
 	}
@@ -126,7 +121,7 @@ func okColor(format string, args ...interface{}) string {
 
 func failColor(format string, args ...interface{}) string {
 	if *flag_color {
-		return _failColor(format, args...)
+		return color.RedString(format, args...)
 	} else {
 		return fmt.Sprintf(format, args...)
 	}
