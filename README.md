@@ -21,7 +21,9 @@ Usage:
 |`-exclude=…` | none | Exclude files matching this glob pattern, e.g. ".#*" ignores emacs temporary files. You may have multiples of this flag.|
 |`-include=…` | none | Include files whose last path component matches this glob pattern. You may have multiples of this flag.|
 |`-pattern=…` | (.+\\.go&#124;.+\\.c)$ | A regular expression which matches the files to watch. The default watches *.go* and *.c* files.|
-
+|`-on-build=…` | *none* | Execute this command after a successful build. You may have multiples of this flag. Unlike `-command` these commands are expected to terminate.|
+|`-on-fail=…` | *none* | Execute this command after a failed build. You may have multiples of this flag.|
+ 
 ## Examples
 
 In its simplest form, the defaults will do. With the current working directory set

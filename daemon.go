@@ -44,6 +44,8 @@ There are command line options.
 	ACTIONS
 	-build=CCC        – Execute CCC to rebuild when a file changes
 	-command=CCC      – Run command CCC after a successful build, stops previous command first
+        -on-build=CCC     - Run command CCC after a successful build, this should terminate.
+        -on-fail=CCC      - Run command CCC after a failed build, this should terminate.
 
 */
 package main
@@ -92,6 +94,40 @@ func (g *globList) Matches(value string) bool {
 		}
 	}
 	return false
+}
+
+type cmdList []string
+
+var onBuilds cmdList
+var onFails cmdList
+
+func (c *cmdList) String() string {
+	return fmt.Sprintf("%@", *c)
+}
+func (c *cmdList) Set(value string) error {
+	*c = append(*c, value)
+	return nil
+}
+func (c *cmdList) Notify() bool {
+	allGood := true
+
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "sh"
+	}
+
+	for _, cmd := range *c {
+		p := exec.Command(shell, "-c", cmd)
+		p.Stdout = os.Stdout
+		p.Stderr = os.Stderr
+		if err := p.Run(); err != nil {
+			allGood = false
+			log.Printf("Notification failed")
+			log.Printf("   %s", cmd)
+			log.Printf("   %s", err.Error())
+		}
+	}
+	return allGood
 }
 
 var (
@@ -147,7 +183,10 @@ func builder(jobs <-chan string, buildDone chan<- struct{}) {
 			threshold = createThreshold()
 		case <-threshold:
 			if build() {
+				onBuilds.Notify()
 				buildDone <- struct{}{}
+			} else {
+				onFails.Notify()
 			}
 		}
 	}
@@ -248,6 +287,8 @@ func main() {
 	flag.Var(&excludedDirs, "exclude-dir", " Don't watch directories matching this name")
 	flag.Var(&excludedFiles, "exclude", " Don't watch files matching this name")
 	flag.Var(&includedFiles, "include", " Watch files matching this name")
+	flag.Var(&onBuilds, "on-build", "Execute this command after a successful build")
+	flag.Var(&onFails, "on-fail", "Execute this command after a failed build")
 
 	flag.Parse()
 
