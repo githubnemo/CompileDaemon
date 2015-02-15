@@ -41,6 +41,11 @@ There are command line options.
 	-include=XXX      – include files whose basename matches glob pattern XXX
 	-pattern=XXX      – include files whose path matches regexp XXX
 
+	MISC
+	-color            - enable colorized output
+	-log-prefix       - Enable/disable stdout/stderr labelling for the child process
+	-graceful-kill    - On supported platforms, send the child process a SIGTERM to
+	                    allow it to exit gracefully if possible.
 	ACTIONS
 	-build=CCC        – Execute CCC to rebuild when a file changes
 	-command=CCC      – Run command CCC after a successful build, stops previous command first
@@ -52,6 +57,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/howeyc/fsnotify"
 	"io"
 	"log"
@@ -91,11 +97,14 @@ func (g *globList) Matches(value string) bool {
 }
 
 var (
-	flag_directory = flag.String("directory", ".", "Directory to watch for changes")
-	flag_pattern   = flag.String("pattern", FilePattern, "Pattern of watched files")
-	flag_command   = flag.String("command", "", "Command to run and restart after build")
-	flag_recursive = flag.Bool("recursive", true, "Watch all dirs. recursively")
-	flag_build     = flag.String("build", "go build", "Command to rebuild after changes")
+	flag_directory    = flag.String("directory", ".", "Directory to watch for changes")
+	flag_pattern      = flag.String("pattern", FilePattern, "Pattern of watched files")
+	flag_command      = flag.String("command", "", "Command to run and restart after build")
+	flag_recursive    = flag.Bool("recursive", true, "Watch all dirs. recursively")
+	flag_build        = flag.String("build", "go build", "Command to rebuild after changes")
+	flag_color        = flag.Bool("color", false, "Colorize output for CompileDaemon status messages")
+	flag_logprefix    = flag.Bool("log-prefix", true, "Print log timestamps and subprocess stderr/stdout output")
+	flag_gracefulkill = flag.Bool("graceful-kill", false, "Gracefully attempt to kill the child process by sending a SIGTERM first")
 
 	// initialized in main() due to custom type.
 	flag_excludedDirs globList
@@ -103,9 +112,25 @@ var (
 	flag_includedFiles globList
 )
 
+func okColor(format string, args ...interface{}) string {
+	if *flag_color {
+		return color.GreenString(format, args...)
+	} else {
+		return fmt.Sprintf(format, args...)
+	}
+}
+
+func failColor(format string, args ...interface{}) string {
+	if *flag_color {
+		return color.RedString(format, args...)
+	} else {
+		return fmt.Sprintf(format, args...)
+	}
+}
+
 // Run `go build` and print the output if something's gone wrong.
 func build() bool {
-	log.Println("Running build command!")
+	log.Println(okColor("Running build command!"))
 
 	args := strings.Split(*flag_build, " ")
 	if len(args) == 0 {
@@ -120,9 +145,9 @@ func build() bool {
 	output, err := cmd.CombinedOutput()
 
 	if err == nil {
-		log.Println("Build ok.")
+		log.Println(okColor("Build ok."))
 	} else {
-		log.Println("Error while building:\n", string(output))
+		log.Println(failColor("Error while building:\n"), failColor(string(output)))
 	}
 
 	return err == nil
@@ -166,7 +191,11 @@ func logger(pipeChan <-chan io.ReadCloser) {
 				break readloop
 			}
 
-			log.Print(prefix, " ", line)
+			if *flag_logprefix {
+				log.Print(prefix, " ", line)
+			} else {
+				log.Print(line)
+			}
 		}
 	}
 
@@ -214,28 +243,64 @@ func runner(command string, buildDone <-chan struct{}) {
 		<-buildDone
 
 		if currentProcess != nil {
-			if err := currentProcess.Kill(); err != nil {
-				log.Fatal("Could not kill child process. Aborting due to danger of infinite forks.")
-			}
-
-			_, werr := currentProcess.Wait()
-
-			if werr != nil {
-				log.Fatal("Could not wait for child process. Aborting due to danger of infinite forks.")
-			}
+			killProcess(currentProcess)
 		}
 
-		log.Println("Restarting the given command.")
+		log.Println(okColor("Restarting the given command."))
 		cmd, stdoutPipe, stderrPipe, err := startCommand(command)
 
 		if err != nil {
-			log.Fatal("Could not start command:", err)
+			log.Fatal(failColor("Could not start command:", err))
 		}
 
 		pipeChan <- stdoutPipe
 		pipeChan <- stderrPipe
 
 		currentProcess = cmd.Process
+	}
+}
+
+func killProcess(process *os.Process) {
+	if *flag_gracefulkill {
+		killProcessGracefully(process)
+	} else {
+		killProcessHard(process)
+	}
+}
+
+func killProcessHard(process *os.Process) {
+	log.Println(okColor("Hard stopping the current process.."))
+
+	if err := process.Kill(); err != nil {
+		log.Fatal(failColor("Could not kill child process. Aborting due to danger of infinite forks."))
+	}
+
+	if _, err := process.Wait(); err != nil {
+		log.Fatal(failColor("Could not wait for child process. Aborting due to danger of infinite forks."))
+	}
+}
+
+func killProcessGracefully(process *os.Process) {
+	done := make(chan error, 1)
+	go func() {
+		log.Println(okColor("Gracefully stopping the current process.."))
+		if err := terminateGracefully(process); err != nil {
+			done <- err
+			return
+		}
+		_, err := process.Wait()
+		done <- err
+	}()
+
+	select {
+	case <-time.After(3 * time.Second):
+		log.Println(failColor("Could not gracefully stop the current process, proceeding to hard stop."))
+		killProcessHard(process)
+		<-done
+	case err := <-done:
+		if err != nil {
+			log.Fatal(failColor("Could not kill child process. Aborting due to danger of infinite forks."))
+		}
 	}
 }
 
@@ -252,9 +317,17 @@ func main() {
 
 	flag.Parse()
 
+	if !*flag_logprefix {
+		log.SetFlags(0)
+	}
+
 	if *flag_directory == "" {
 		fmt.Fprintf(os.Stderr, "-directory=... is required.\n")
 		os.Exit(1)
+	}
+
+	if *flag_gracefulkill && !gracefulTerminationPossible() {
+		log.Fatal("Graceful termination is not supported on your platform.")
 	}
 
 	watcher, err := fsnotify.NewWatcher()
