@@ -100,6 +100,7 @@ var (
 	flag_directory    = flag.String("directory", ".", "Directory to watch for changes")
 	flag_pattern      = flag.String("pattern", FilePattern, "Pattern of watched files")
 	flag_command      = flag.String("command", "", "Command to run and restart after build")
+	flag_command_stop  = flag.Bool("command-stop", false, "Stop command before building")
 	flag_recursive    = flag.Bool("recursive", true, "Watch all dirs. recursively")
 	flag_build        = flag.String("build", "go build", "Command to rebuild after changes")
 	flag_color        = flag.Bool("color", false, "Colorize output for CompileDaemon status messages")
@@ -172,6 +173,9 @@ func builder(jobs <-chan string, buildDone chan<- struct{}) {
 		case <-jobs:
 			threshold = createThreshold()
 		case <-threshold:
+			if *flag_command_stop {
+				buildDone <- struct{}{}
+			}
 			if build() {
 				buildDone <- struct{}{}
 			}
@@ -245,6 +249,10 @@ func runner(command string, buildDone <-chan struct{}) {
 		if currentProcess != nil {
 			killProcess(currentProcess)
 		}
+		if *flag_command_stop {
+			log.Println(okColor("Command stopped. Waiting for build to complete."))
+			<-buildDone
+		}
 
 		log.Println(okColor("Restarting the given command."))
 		cmd, stdoutPipe, stderrPipe, err := startCommand(command)
@@ -306,6 +314,9 @@ func killProcessGracefully(process *os.Process) {
 
 func flusher(buildDone <-chan struct{}) {
 	for {
+		if *flag_command_stop {
+			<-buildDone
+		}
 		<-buildDone
 	}
 }
