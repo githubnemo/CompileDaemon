@@ -161,7 +161,7 @@ func matchesPattern(pattern *regexp.Regexp, file string) bool {
 // Accept build jobs and start building when there are no jobs rushing in.
 // The inrush protection is WorkDelay milliseconds long, in this period
 // every incoming job will reset the timer.
-func builder(jobs <-chan string, buildDone chan<- struct{}) {
+func builder(jobs <-chan string,buildStarted chan<- struct{}, buildDone chan<- struct{}) {
 	createThreshold := func() <-chan time.Time {
 		return time.After(time.Duration(WorkDelay * time.Millisecond))
 	}
@@ -173,9 +173,8 @@ func builder(jobs <-chan string, buildDone chan<- struct{}) {
 		case <-jobs:
 			threshold = createThreshold()
 		case <-threshold:
-			if *flag_command_stop {
-				buildDone <- struct{}{}
-			}
+			buildStarted <- struct{}{}
+			
 			if build() {
 				buildDone <- struct{}{}
 			}
@@ -237,14 +236,17 @@ func startCommand(command string) (cmd *exec.Cmd, stdout io.ReadCloser, stderr i
 
 // Run the command in the given string and restart it after
 // a message was received on the buildDone channel.
-func runner(command string, buildDone <-chan struct{}) {
+func runner(command string,buildStarted <-chan struct{}, buildDone <-chan struct{}) {
 	var currentProcess *os.Process
 	pipeChan := make(chan io.ReadCloser)
 
 	go logger(pipeChan)
 
 	for {
-		<-buildDone
+		<-buildStarted
+		if !*flag_command_stop {
+			<-buildDone
+		}
 
 		if currentProcess != nil {
 			killProcess(currentProcess)
@@ -312,11 +314,9 @@ func killProcessGracefully(process *os.Process) {
 	}
 }
 
-func flusher(buildDone <-chan struct{}) {
-	for {
-		if *flag_command_stop {
-			<-buildDone
-		}
+func flusher(buildStarted <-chan struct{},buildDone <-chan struct{}) {
+	for {		
+		<-buildStarted		
 		<-buildDone
 	}
 }
@@ -374,13 +374,14 @@ func main() {
 	pattern := regexp.MustCompile(*flag_pattern)
 	jobs := make(chan string)
 	buildDone := make(chan struct{})
+	buildStarted := make(chan struct{})
 
-	go builder(jobs, buildDone)
+	go builder(jobs, buildStarted,buildDone)
 
 	if *flag_command != "" {
-		go runner(*flag_command, buildDone)
+		go runner(*flag_command, buildStarted,buildDone)
 	} else {
-		go flusher(buildDone)
+		go flusher(buildStarted,buildDone)
 	}
 
 	for {
