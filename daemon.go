@@ -161,7 +161,7 @@ func matchesPattern(pattern *regexp.Regexp, file string) bool {
 // Accept build jobs and start building when there are no jobs rushing in.
 // The inrush protection is WorkDelay milliseconds long, in this period
 // every incoming job will reset the timer.
-func builder(jobs <-chan string, buildStarted chan<- struct{}, buildDone chan<- struct{}) {
+func builder(jobs <-chan string, buildStarted chan<- struct{}, buildDone chan<- bool) {
 	createThreshold := func() <-chan time.Time {
 		return time.After(time.Duration(WorkDelay * time.Millisecond))
 	}
@@ -174,10 +174,7 @@ func builder(jobs <-chan string, buildStarted chan<- struct{}, buildDone chan<- 
 			threshold = createThreshold()
 		case <-threshold:
 			buildStarted <- struct{}{}
-
-			if build() {
-				buildDone <- struct{}{}
-			}
+			buildDone <- build()
 		}
 	}
 }
@@ -236,7 +233,7 @@ func startCommand(command string) (cmd *exec.Cmd, stdout io.ReadCloser, stderr i
 
 // Run the command in the given string and restart it after
 // a message was received on the buildDone channel.
-func runner(command string, buildStarted <-chan struct{}, buildDone <-chan struct{}) {
+func runner(command string, buildStarted <-chan struct{}, buildDone <-chan bool) {
 	var currentProcess *os.Process
 	pipeChan := make(chan io.ReadCloser)
 
@@ -245,7 +242,10 @@ func runner(command string, buildStarted <-chan struct{}, buildDone <-chan struc
 	for {
 		<-buildStarted
 		if !*flag_command_stop {
-			<-buildDone
+			buildSuccess := <-buildDone
+			if !buildSuccess {
+				continue
+			}
 		}
 
 		if currentProcess != nil {
@@ -314,7 +314,7 @@ func killProcessGracefully(process *os.Process) {
 	}
 }
 
-func flusher(buildStarted <-chan struct{}, buildDone <-chan struct{}) {
+func flusher(buildStarted <-chan struct{}, buildDone <-chan bool) {
 	for {
 		<-buildStarted
 		<-buildDone
@@ -373,7 +373,7 @@ func main() {
 
 	pattern := regexp.MustCompile(*flag_pattern)
 	jobs := make(chan string)
-	buildDone := make(chan struct{})
+	buildDone := make(chan bool)
 	buildStarted := make(chan struct{})
 
 	go builder(jobs, buildStarted, buildDone)
