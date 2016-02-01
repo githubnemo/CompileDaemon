@@ -103,7 +103,7 @@ var (
 	flag_command_stop = flag.Bool("command-stop", false, "Stop command before building")
 	flag_recursive    = flag.Bool("recursive", true, "Watch all dirs. recursively")
 	flag_build        = flag.String("build", "go build", "Command to rebuild after changes")
-	flag_build_dir    = flag.String("build-dir", "", "Directory to run build command in.  Default to directory")
+	flag_build_dir    = flag.String("build-dir", "", "Directory to run build command in.  Defaults to directory")
 	flag_color        = flag.Bool("color", false, "Colorize output for CompileDaemon status messages")
 	flag_logprefix    = flag.Bool("log-prefix", true, "Print log timestamps and subprocess stderr/stdout output")
 	flag_gracefulkill = flag.Bool("graceful-kill", false, "Gracefully attempt to kill the child process by sending a SIGTERM first")
