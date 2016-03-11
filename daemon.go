@@ -239,7 +239,7 @@ func startCommand(command string) (cmd *exec.Cmd, stdout io.ReadCloser, stderr i
 
 // Run the command in the given string and restart it after
 // a message was received on the buildDone channel.
-func runner(command string, buildStarted <-chan struct{}, buildDone <-chan bool) {
+func runner(command string, buildStarted <-chan struct{}, buildSuccess <-chan bool) {
 	var currentProcess *os.Process
 	pipeChan := make(chan io.ReadCloser)
 
@@ -248,8 +248,7 @@ func runner(command string, buildStarted <-chan struct{}, buildDone <-chan bool)
 	for {
 		<-buildStarted
 		if !*flag_command_stop {
-			buildSuccess := <-buildDone
-			if !buildSuccess {
+			if !<-buildSuccess {
 				continue
 			}
 		}
@@ -259,7 +258,7 @@ func runner(command string, buildStarted <-chan struct{}, buildDone <-chan bool)
 		}
 		if *flag_command_stop {
 			log.Println(okColor("Command stopped. Waiting for build to complete."))
-			<-buildDone
+			<-buildSuccess
 		}
 
 		log.Println(okColor("Restarting the given command."))
@@ -320,10 +319,10 @@ func killProcessGracefully(process *os.Process) {
 	}
 }
 
-func flusher(buildStarted <-chan struct{}, buildDone <-chan bool) {
+func flusher(buildStarted <-chan struct{}, buildSuccess <-chan bool) {
 	for {
 		<-buildStarted
-		<-buildDone
+		<-buildSuccess
 	}
 }
 
@@ -383,15 +382,15 @@ func main() {
 
 	pattern := regexp.MustCompile(*flag_pattern)
 	jobs := make(chan string)
-	buildDone := make(chan bool)
+	buildSuccess := make(chan bool)
 	buildStarted := make(chan struct{})
 
-	go builder(jobs, buildStarted, buildDone)
+	go builder(jobs, buildStarted, buildSuccess)
 
 	if *flag_command != "" {
-		go runner(*flag_command, buildStarted, buildDone)
+		go runner(*flag_command, buildStarted, buildSuccess)
 	} else {
-		go flusher(buildStarted, buildDone)
+		go flusher(buildStarted, buildSuccess)
 	}
 
 	for {
