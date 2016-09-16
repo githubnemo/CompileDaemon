@@ -66,6 +66,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -250,6 +251,17 @@ func runner(commandTemplate string, buildStarted <-chan string, buildSuccess <-c
 	pipeChan := make(chan io.ReadCloser)
 
 	go logger(pipeChan)
+
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, fatalSignals...)
+		<-sigChan
+		log.Println(okColor("Received signal, terminating cleanly."))
+		if currentProcess != nil {
+			killProcess(currentProcess)
+		}
+		os.Exit(0)
+	}()
 
 	for {
 		eventPath := <-buildStarted
