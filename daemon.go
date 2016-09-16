@@ -18,7 +18,12 @@ If you want it to also run your program each time it builds you might add…
     $ CompileDaemon -command="./MyProgram -my-options"
 
 … and it will also keep a copy of your program running. Killing the old one and
-starting a new one each time you build.
+starting a new one each time you build. For advanced usage you can also supply
+the changed file to the command by doing…
+
+	$ CompileDaemon -command="./MyProgram -my-options %[1]s"
+
+…but note that this will not be set on the first start.
 
 You may find that you need to exclude some directories and files from
 monitoring, such as a .git repository or emacs temporary files…
@@ -167,19 +172,20 @@ func matchesPattern(pattern *regexp.Regexp, file string) bool {
 // Accept build jobs and start building when there are no jobs rushing in.
 // The inrush protection is WorkDelay milliseconds long, in this period
 // every incoming job will reset the timer.
-func builder(jobs <-chan string, buildStarted chan<- struct{}, buildDone chan<- bool) {
+func builder(jobs <-chan string, buildStarted chan<- string, buildDone chan<- bool) {
 	createThreshold := func() <-chan time.Time {
 		return time.After(time.Duration(WorkDelay * time.Millisecond))
 	}
 
 	threshold := createThreshold()
+	eventPath := ""
 
 	for {
 		select {
-		case <-jobs:
+		case eventPath = <-jobs:
 			threshold = createThreshold()
 		case <-threshold:
-			buildStarted <- struct{}{}
+			buildStarted <- eventPath
 			buildDone <- build()
 		}
 	}
@@ -239,14 +245,19 @@ func startCommand(command string) (cmd *exec.Cmd, stdout io.ReadCloser, stderr i
 
 // Run the command in the given string and restart it after
 // a message was received on the buildDone channel.
-func runner(command string, buildStarted <-chan struct{}, buildSuccess <-chan bool) {
+func runner(commandTemplate string, buildStarted <-chan string, buildSuccess <-chan bool) {
 	var currentProcess *os.Process
 	pipeChan := make(chan io.ReadCloser)
 
 	go logger(pipeChan)
 
 	for {
-		<-buildStarted
+		eventPath := <-buildStarted
+
+		// append %0.s to use format specifier even if not supplied by user
+		// to suppress warning in returned string.
+		command := fmt.Sprintf("%0.s" + commandTemplate, eventPath)
+
 		if !*flag_command_stop {
 			if !<-buildSuccess {
 				continue
@@ -319,7 +330,7 @@ func killProcessGracefully(process *os.Process) {
 	}
 }
 
-func flusher(buildStarted <-chan struct{}, buildSuccess <-chan bool) {
+func flusher(buildStarted <-chan string, buildSuccess <-chan bool) {
 	for {
 		<-buildStarted
 		<-buildSuccess
@@ -383,7 +394,7 @@ func main() {
 	pattern := regexp.MustCompile(*flag_pattern)
 	jobs := make(chan string)
 	buildSuccess := make(chan bool)
-	buildStarted := make(chan struct{})
+	buildStarted := make(chan string)
 
 	go builder(jobs, buildStarted, buildSuccess)
 
