@@ -422,6 +422,11 @@ func main() {
 			if ev.Op&fsnotify.Remove == fsnotify.Remove || ev.Op&fsnotify.Write == fsnotify.Write || ev.Op&fsnotify.Create == fsnotify.Create {
 				base := filepath.Base(ev.Name)
 
+				// Assume it is a directory and track it.
+				if *flag_recursive == true && !flag_excludedDirs.Matches(ev.Name) {
+					watcher.Add(ev.Name)
+				}
+
 				if flag_includedFiles.Matches(base) || matchesPattern(pattern, ev.Name) {
 					if !flag_excludedFiles.Matches(base) {
 						jobs <- ev.Name
