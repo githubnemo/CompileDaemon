@@ -288,7 +288,7 @@ func runner(commandTemplate string, buildStarted <-chan string, buildSuccess <-c
 		cmd, stdoutPipe, stderrPipe, err := startCommand(command)
 
 		if err != nil {
-			log.Fatal(failColor("Could not start command:", err))
+			log.Fatal(failColor("Could not start command: %s", err))
 		}
 
 		pipeChan <- stdoutPipe
