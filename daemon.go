@@ -271,7 +271,7 @@ func runner(commandTemplate string, buildStarted <-chan string, buildSuccess <-c
 
 		// append %0.s to use format specifier even if not supplied by user
 		// to suppress warning in returned string.
-		command := fmt.Sprintf("%0.s" + commandTemplate, eventPath)
+		command := fmt.Sprintf("%0.s"+commandTemplate, eventPath)
 
 		if !*flag_command_stop {
 			if !<-buildSuccess {
