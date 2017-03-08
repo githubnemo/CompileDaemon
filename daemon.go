@@ -91,7 +91,7 @@ func (g *globList) String() string {
 	return fmt.Sprint(*g)
 }
 func (g *globList) Set(value string) error {
-	*g = append(*g, value)
+	*g = append(*g, filepath.Clean(value))
 	return nil
 }
 func (g *globList) Matches(value string) bool {
@@ -383,7 +383,7 @@ func main() {
 	if *flag_recursive == true {
 		err = filepath.Walk(*flag_directory, func(path string, info os.FileInfo, err error) error {
 			if err == nil && info.IsDir() {
-				if flag_excludedDirs.Matches(info.Name()) {
+				if flag_excludedDirs.Matches(path) {
 					return filepath.SkipDir
 				} else {
 					if *flag_verbose {
