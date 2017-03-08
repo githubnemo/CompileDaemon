@@ -51,6 +51,8 @@ There are command line options.
 	-log-prefix       - Enable/disable stdout/stderr labelling for the child process
 	-graceful-kill    - On supported platforms, send the child process a SIGTERM to
 	                    allow it to exit gracefully if possible.
+	-verbose          - Print information about watched directories.
+
 	ACTIONS
 	-build=CCC        – Execute CCC to rebuild when a file changes
 	-command=CCC      – Run command CCC after a successful build, stops previous command first
@@ -114,6 +116,7 @@ var (
 	flag_color        = flag.Bool("color", false, "Colorize output for CompileDaemon status messages")
 	flag_logprefix    = flag.Bool("log-prefix", true, "Print log timestamps and subprocess stderr/stdout output")
 	flag_gracefulkill = flag.Bool("graceful-kill", false, "Gracefully attempt to kill the child process by sending a SIGTERM first")
+	flag_verbose      = flag.Bool("verbose", false, "Be verbose about which directories are watched.")
 
 	// initialized in main() due to custom type.
 	flag_excludedDirs  globList
@@ -383,6 +386,9 @@ func main() {
 				if flag_excludedDirs.Matches(info.Name()) {
 					return filepath.SkipDir
 				} else {
+					if *flag_verbose {
+						log.Printf("Watching directory '%s' for changes.\n", path)
+					}
 					return watcher.Add(path)
 				}
 			}
