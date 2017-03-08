@@ -39,15 +39,15 @@ Options
 There are command line options.
 
 	FILE SELECTION
-	-directory=XXX    – which directory to monitor for changes
-	-recursive=XXX    – look into subdirectories
-	-exclude-dir=XXX  – exclude directories matching glob pattern XXX
-	-exlude=XXX       – exclude files whose basename matches glob pattern XXX
-	-include=XXX      – include files whose basename matches glob pattern XXX
-	-pattern=XXX      – include files whose path matches regexp XXX
+	-directory=XXX    – Which directory to monitor for changes
+	-recursive=XXX    – Look into subdirectories
+	-exclude-dir=XXX  – Exclude directories matching glob pattern XXX
+	-exlude=XXX       – Exclude files whose basename matches glob pattern XXX
+	-include=XXX      – Include files whose basename matches glob pattern XXX
+	-pattern=XXX      – Include files whose path matches regexp XXX
 
 	MISC
-	-color            - enable colorized output
+	-color            - Enable colorized output
 	-log-prefix       - Enable/disable stdout/stderr labelling for the child process
 	-graceful-kill    - On supported platforms, send the child process a SIGTERM to
 	                    allow it to exit gracefully if possible.
