@@ -284,7 +284,9 @@ func runner(commandTemplate string, buildStarted <-chan string, buildSuccess <-c
 		}
 		if *flag_command_stop {
 			log.Println(okColor("Command stopped. Waiting for build to complete."))
-			<-buildSuccess
+			if !<-buildSuccess {
+				continue
+			}
 		}
 
 		log.Println(okColor("Restarting the given command."))
