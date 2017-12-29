@@ -315,7 +315,7 @@ func killProcessHard(process *os.Process) {
 	log.Println(okColor("Hard stopping the current process.."))
 
 	if err := process.Kill(); err != nil {
-		log.Fatal(failColor("Could not kill child process. Aborting due to danger of infinite forks."))
+		log.Println(failColor("Warning: could not kill child process.  It may have already exited."))
 	}
 
 	if _, err := process.Wait(); err != nil {
