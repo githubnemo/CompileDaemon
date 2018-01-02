@@ -52,6 +52,7 @@ There are command line options.
 	-graceful-kill    - On supported platforms, send the child process a SIGTERM to
 	                    allow it to exit gracefully if possible.
 	-verbose          - Print information about watched directories.
+	-manual-restart	  - Manual restart by typing "rs"
 
 	ACTIONS
 	-build=CCC        – Execute CCC to rebuild when a file changes
@@ -106,17 +107,18 @@ func (g *globList) Matches(value string) bool {
 }
 
 var (
-	flag_directory    = flag.String("directory", ".", "Directory to watch for changes")
-	flag_pattern      = flag.String("pattern", FilePattern, "Pattern of watched files")
-	flag_command      = flag.String("command", "", "Command to run and restart after build")
-	flag_command_stop = flag.Bool("command-stop", false, "Stop command before building")
-	flag_recursive    = flag.Bool("recursive", true, "Watch all dirs. recursively")
-	flag_build        = flag.String("build", "go build", "Command to rebuild after changes")
-	flag_build_dir    = flag.String("build-dir", "", "Directory to run build command in.  Defaults to directory")
-	flag_color        = flag.Bool("color", false, "Colorize output for CompileDaemon status messages")
-	flag_logprefix    = flag.Bool("log-prefix", true, "Print log timestamps and subprocess stderr/stdout output")
-	flag_gracefulkill = flag.Bool("graceful-kill", false, "Gracefully attempt to kill the child process by sending a SIGTERM first")
-	flag_verbose      = flag.Bool("verbose", false, "Be verbose about which directories are watched.")
+	flag_directory      = flag.String("directory", ".", "Directory to watch for changes")
+	flag_pattern        = flag.String("pattern", FilePattern, "Pattern of watched files")
+	flag_command        = flag.String("command", "", "Command to run and restart after build")
+	flag_command_stop   = flag.Bool("command-stop", false, "Stop command before building")
+	flag_recursive      = flag.Bool("recursive", true, "Watch all dirs. recursively")
+	flag_build          = flag.String("build", "go build", "Command to rebuild after changes")
+	flag_build_dir      = flag.String("build-dir", "", "Directory to run build command in.  Defaults to directory")
+	flag_color          = flag.Bool("color", false, "Colorize output for CompileDaemon status messages")
+	flag_logprefix      = flag.Bool("log-prefix", true, "Print log timestamps and subprocess stderr/stdout output")
+	flag_gracefulkill   = flag.Bool("graceful-kill", false, "Gracefully attempt to kill the child process by sending a SIGTERM first")
+	flag_verbose        = flag.Bool("verbose", false, "Be verbose about which directories are watched.")
+	flag_manual_restart = flag.Bool("manual-restart", false, "Manual restart by typing \"rs\"")
 
 	// initialized in main() due to custom type.
 	flag_excludedDirs  globList
@@ -354,6 +356,15 @@ func flusher(buildStarted <-chan string, buildSuccess <-chan bool) {
 	}
 }
 
+func manualRestarter(manualRestart chan<- struct{}) {
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		if scanner.Text() == "rs" {
+			manualRestart <- struct{}{}
+		}
+	}
+}
+
 func main() {
 	flag.Var(&flag_excludedDirs, "exclude-dir", " Don't watch directories matching this name")
 	flag.Var(&flag_excludedFiles, "exclude", " Don't watch files matching this name")
@@ -415,6 +426,7 @@ func main() {
 	jobs := make(chan string)
 	buildSuccess := make(chan bool)
 	buildStarted := make(chan string)
+	manualRestart := make(chan struct{})
 
 	go builder(jobs, buildStarted, buildSuccess)
 
@@ -422,6 +434,10 @@ func main() {
 		go runner(*flag_command, buildStarted, buildSuccess)
 	} else {
 		go flusher(buildStarted, buildSuccess)
+	}
+
+	if *flag_manual_restart {
+		go manualRestarter(manualRestart)
 	}
 
 	for {
@@ -441,6 +457,9 @@ func main() {
 					}
 				}
 			}
+
+		case <-manualRestart:
+			jobs <- ""
 
 		case err := <-watcher.Errors:
 			if v, ok := err.(*os.SyscallError); ok {
