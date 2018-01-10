@@ -51,6 +51,7 @@ There are command line options.
 	-log-prefix       - Enable/disable stdout/stderr labelling for the child process
 	-graceful-kill    - On supported platforms, send the child process a SIGTERM to
 	                    allow it to exit gracefully if possible.
+	-graceful-timeout - Duration (in seconds) to wait for graceful kill to complete
 	-verbose          - Print information about watched directories.
 
 	ACTIONS
@@ -106,17 +107,18 @@ func (g *globList) Matches(value string) bool {
 }
 
 var (
-	flag_directory    = flag.String("directory", ".", "Directory to watch for changes")
-	flag_pattern      = flag.String("pattern", FilePattern, "Pattern of watched files")
-	flag_command      = flag.String("command", "", "Command to run and restart after build")
-	flag_command_stop = flag.Bool("command-stop", false, "Stop command before building")
-	flag_recursive    = flag.Bool("recursive", true, "Watch all dirs. recursively")
-	flag_build        = flag.String("build", "go build", "Command to rebuild after changes")
-	flag_build_dir    = flag.String("build-dir", "", "Directory to run build command in.  Defaults to directory")
-	flag_color        = flag.Bool("color", false, "Colorize output for CompileDaemon status messages")
-	flag_logprefix    = flag.Bool("log-prefix", true, "Print log timestamps and subprocess stderr/stdout output")
-	flag_gracefulkill = flag.Bool("graceful-kill", false, "Gracefully attempt to kill the child process by sending a SIGTERM first")
-	flag_verbose      = flag.Bool("verbose", false, "Be verbose about which directories are watched.")
+	flag_directory       = flag.String("directory", ".", "Directory to watch for changes")
+	flag_pattern         = flag.String("pattern", FilePattern, "Pattern of watched files")
+	flag_command         = flag.String("command", "", "Command to run and restart after build")
+	flag_command_stop    = flag.Bool("command-stop", false, "Stop command before building")
+	flag_recursive       = flag.Bool("recursive", true, "Watch all dirs. recursively")
+	flag_build           = flag.String("build", "go build", "Command to rebuild after changes")
+	flag_build_dir       = flag.String("build-dir", "", "Directory to run build command in.  Defaults to directory")
+	flag_color           = flag.Bool("color", false, "Colorize output for CompileDaemon status messages")
+	flag_logprefix       = flag.Bool("log-prefix", true, "Print log timestamps and subprocess stderr/stdout output")
+	flag_gracefulkill    = flag.Bool("graceful-kill", false, "Gracefully attempt to kill the child process by sending a SIGTERM first")
+	flag_gracefultimeout = flag.Uint("graceful-timeout", 3, "Duration (in seconds) to wait for graceful kill to complete")
+	flag_verbose         = flag.Bool("verbose", false, "Be verbose about which directories are watched.")
 
 	// initialized in main() due to custom type.
 	flag_excludedDirs  globList
@@ -336,7 +338,7 @@ func killProcessGracefully(process *os.Process) {
 	}()
 
 	select {
-	case <-time.After(3 * time.Second):
+	case <-time.After(time.Duration(*flag_gracefultimeout) * time.Second):
 		log.Println(failColor("Could not gracefully stop the current process, proceeding to hard stop."))
 		killProcessHard(process)
 		<-done
