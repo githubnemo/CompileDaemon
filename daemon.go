@@ -106,8 +106,34 @@ func (g *globList) Matches(value string) bool {
 	return false
 }
 
+type dirList map[string]struct{}
+
+func (d *dirList) String() string {
+	keys := make([]string, 0, len(*d))
+	for dir := range *d {
+		keys = append(keys, dir)
+	}
+	return fmt.Sprint(keys)
+}
+func (d *dirList) Set(value string) error {
+	var clean_value string
+	if value != "" {
+		clean_value = filepath.Clean(value)
+	}
+
+	// dirList must be unique, use a zero-byte struct map as a set.
+	(*d)[clean_value] = struct{}{}
+
+	return nil
+}
+func (d *dirList) First() string {
+	for dir := range *d {
+		return dir
+	}
+	return ""
+}
+
 var (
-	flag_directory       = flag.String("directory", ".", "Directory to watch for changes")
 	flag_pattern         = flag.String("pattern", FilePattern, "Pattern of watched files")
 	flag_command         = flag.String("command", "", "Command to run and restart after build")
 	flag_command_stop    = flag.Bool("command-stop", false, "Stop command before building")
@@ -121,6 +147,7 @@ var (
 	flag_verbose         = flag.Bool("verbose", false, "Be verbose about which directories are watched.")
 
 	// initialized in main() due to custom type.
+	flag_directories   dirList
 	flag_excludedDirs  globList
 	flag_excludedFiles globList
 	flag_includedFiles globList
@@ -153,12 +180,7 @@ func build() bool {
 	}
 
 	cmd := exec.Command(args[0], args[1:]...)
-
-	if *flag_build_dir != "" {
-		cmd.Dir = *flag_build_dir
-	} else {
-		cmd.Dir = *flag_directory
-	}
+	cmd.Dir = *flag_build_dir
 
 	output, err := cmd.CombinedOutput()
 
@@ -356,7 +378,69 @@ func flusher(buildStarted <-chan string, buildSuccess <-chan bool) {
 	}
 }
 
+func watchDirectories(watcher *fsnotify.Watcher) {
+	for dir := range flag_directories {
+		if !*flag_recursive {
+			if err := watcher.Add(dir); err != nil {
+				log.Fatal("watcher.Add():", err)
+			}
+
+			return
+		}
+
+		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err == nil && info.IsDir() {
+				if flag_excludedDirs.Matches(path) {
+					return filepath.SkipDir
+				}
+
+				if *flag_verbose {
+					log.Printf("Watching directory '%s' for changes.\n", path)
+				}
+
+				return watcher.Add(path)
+			}
+
+			return err
+		})
+
+		if os.IsNotExist(err) {
+			log.Fatalf("-directory=%s does not exist", dir)
+		}
+
+		if err != nil {
+			log.Fatal("filepath.Walk():", err)
+		}
+
+		if err := watcher.Add(dir); err != nil {
+			log.Fatal("watcher.Add():", err)
+		}
+	}
+}
+
+func validateFlags() {
+	if len(flag_directories) == 0 {
+		flag_directories.Set(".")
+	}
+
+	if *flag_build_dir == "" {
+		if len(flag_directories) == 1 {
+			default_build_dir := flag_directories.First()
+			flag_build_dir = &default_build_dir
+		} else {
+			fmt.Fprintf(os.Stderr, "-build-dir is required when specifying multiple watch directeries.\n")
+			os.Exit(1)
+		}
+	}
+
+	if *flag_gracefulkill && !gracefulTerminationPossible() {
+		log.Fatal("Graceful termination is not supported on your platform.")
+	}
+}
+
 func main() {
+	flag_directories = make(dirList)
+	flag.Var(&flag_directories, "directory", "Directory to watch for changes")
 	flag.Var(&flag_excludedDirs, "exclude-dir", " Don't watch directories matching this name")
 	flag.Var(&flag_excludedFiles, "exclude", " Don't watch files matching this name")
 	flag.Var(&flag_includedFiles, "include", " Watch files matching this name")
@@ -367,14 +451,7 @@ func main() {
 		log.SetFlags(0)
 	}
 
-	if *flag_directory == "" {
-		fmt.Fprintf(os.Stderr, "-directory=... is required.\n")
-		os.Exit(1)
-	}
-
-	if *flag_gracefulkill && !gracefulTerminationPossible() {
-		log.Fatal("Graceful termination is not supported on your platform.")
-	}
+	validateFlags()
 
 	watcher, err := fsnotify.NewWatcher()
 
@@ -384,34 +461,7 @@ func main() {
 
 	defer watcher.Close()
 
-	if *flag_recursive == true {
-		err = filepath.Walk(*flag_directory, func(path string, info os.FileInfo, err error) error {
-			if err == nil && info.IsDir() {
-				if flag_excludedDirs.Matches(path) {
-					return filepath.SkipDir
-				} else {
-					if *flag_verbose {
-						log.Printf("Watching directory '%s' for changes.\n", path)
-					}
-					return watcher.Add(path)
-				}
-			}
-			return err
-		})
-
-		if err != nil {
-			log.Fatal("filepath.Walk():", err)
-		}
-
-		if err := watcher.Add(*flag_directory); err != nil {
-			log.Fatal("watcher.Add():", err)
-		}
-
-	} else {
-		if err := watcher.Add(*flag_directory); err != nil {
-			log.Fatal("watcher.Add():", err)
-		}
-	}
+	watchDirectories(watcher)
 
 	pattern := regexp.MustCompile(*flag_pattern)
 	jobs := make(chan string)
