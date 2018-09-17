@@ -404,12 +404,12 @@ func watchDirectories(watcher *fsnotify.Watcher) {
 			return err
 		})
 
-		if os.IsNotExist(err) {
-			log.Fatalf("-directory=%s does not exist", dir)
-		}
-
 		if err != nil {
-			log.Fatal("filepath.Walk():", err)
+			if os.IsPermission(err) {
+				log.Fatalf("Insufficient privileges to access directory %s", dir)
+			} else {
+				log.Fatalf("Error watching directory %s: %s", dir, err)
+			}
 		}
 
 		if err := watcher.Add(dir); err != nil {
@@ -423,13 +423,23 @@ func validateFlags() {
 		flag_directories.Set(".")
 	}
 
+	for dir := range flag_directories {
+		_, err := os.Stat(dir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				log.Fatalf("-directory=%s does not exist", dir)
+			} else {
+				log.Fatalf("Error for -directory=%s: %s", dir, err)
+			}
+		}
+	}
+
 	if *flag_build_dir == "" {
 		if len(flag_directories) == 1 {
 			default_build_dir := flag_directories.First()
 			flag_build_dir = &default_build_dir
 		} else {
-			fmt.Fprintf(os.Stderr, "-build-dir is required when specifying multiple watch directeries.\n")
-			os.Exit(1)
+			log.Fatal("-build-dir is required when specifying multiple watch directeries.\n")
 		}
 	}
 
