@@ -233,7 +233,7 @@ func startCommand(command string) (cmd *exec.Cmd, stdout io.ReadCloser, stderr i
 	cmd = exec.Command(args[0], args[1:]...)
 	
 	if *flag_run_dir != "" {
-		cmd.Dir = *flag_build_dir
+		cmd.Dir = *flag_run_dir
 	}
 
 	if stdout, err = cmd.StdoutPipe(); err != nil {
