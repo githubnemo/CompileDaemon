@@ -114,6 +114,7 @@ var (
 	flag_recursive       = flag.Bool("recursive", true, "Watch all dirs. recursively")
 	flag_build           = flag.String("build", "go build", "Command to rebuild after changes")
 	flag_build_dir       = flag.String("build-dir", "", "Directory to run build command in.  Defaults to directory")
+	flag_run_dir         = flag.String("run-dir", "", "Directory to run command in.  Defaults to directory")
 	flag_color           = flag.Bool("color", false, "Colorize output for CompileDaemon status messages")
 	flag_logprefix       = flag.Bool("log-prefix", true, "Print log timestamps and subprocess stderr/stdout output")
 	flag_gracefulkill    = flag.Bool("graceful-kill", false, "Gracefully attempt to kill the child process by sending a SIGTERM first")
@@ -230,6 +231,10 @@ func logger(pipeChan <-chan io.ReadCloser) {
 func startCommand(command string) (cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, err error) {
 	args := strings.Split(command, " ")
 	cmd = exec.Command(args[0], args[1:]...)
+	
+	if *flag_run_dir != "" {
+		cmd.Dir = *flag_build_dir
+	}
 
 	if stdout, err = cmd.StdoutPipe(); err != nil {
 		err = fmt.Errorf("can't get stdout pipe for command: %s", err)
