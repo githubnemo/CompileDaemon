@@ -114,6 +114,7 @@ var (
 	flag_recursive       = flag.Bool("recursive", true, "Watch all dirs. recursively")
 	flag_build           = flag.String("build", "go build", "Command to rebuild after changes")
 	flag_build_dir       = flag.String("build-dir", "", "Directory to run build command in.  Defaults to directory")
+	flag_no_build        = flag.Bool("no-build", false, "Disable the build execution after changes.")
 	flag_run_dir         = flag.String("run-dir", "", "Directory to run command in.  Defaults to directory")
 	flag_color           = flag.Bool("color", false, "Colorize output for CompileDaemon status messages")
 	flag_logprefix       = flag.Bool("log-prefix", true, "Print log timestamps and subprocess stderr/stdout output")
@@ -145,6 +146,10 @@ func failColor(format string, args ...interface{}) string {
 
 // Run `go build` and print the output if something's gone wrong.
 func build() bool {
+	if *flag_no_build {
+		return true
+	}
+
 	log.Println(okColor("Running build command!"))
 
 	args := strings.Split(*flag_build, " ")
@@ -231,7 +236,7 @@ func logger(pipeChan <-chan io.ReadCloser) {
 func startCommand(command string) (cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, err error) {
 	args := strings.Split(command, " ")
 	cmd = exec.Command(args[0], args[1:]...)
-	
+
 	if *flag_run_dir != "" {
 		cmd.Dir = *flag_run_dir
 	}

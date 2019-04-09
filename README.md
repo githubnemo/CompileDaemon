@@ -13,6 +13,7 @@ Usage:
 |--------- | ----------- | -----------|
 | | | **actions** |
 |`-build=…`   | go build    | Specify the command to run when rebuilding is required.|
+|`-no-build=…`   | true | Don't run build after detecting changes.|
 |`-command=…` | *none*      | Specify the command to run after a succesful build. The default is to run nothing. This command is issued with the working directory set to -directory.|
 | | | **file selection** |
 |`-directory=…` | . | Which directory to watch.|
@@ -50,6 +51,10 @@ monitoring, such as a .git repository or emacs temporary files…
 If you want to monitor files other than .go and .c files you might…
 
     $ CompileDaemon -include=Makefile -include="*.less" -include="*.tmpl"
+
+If you want to run tests on projects that don't have a main.go file, you can...
+
+    $ CompileDaemon -command="go test ./..." -no-build
 
 ## Notes
 
