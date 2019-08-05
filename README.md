@@ -7,6 +7,12 @@ Usage:
 
 	$ ./CompileDaemon -directory=yourproject/
 
+## Installation
+
+You can use the `go` tool to install `CompileDaemon`:
+
+	go get github.com/githubnemo/CompileDaemon
+
 ## Command Line Options
 
 |Option    | Default     | Description|
