@@ -5,13 +5,17 @@ a file changed. Nothing more.
 
 Usage:
 
-	$ ./CompileDaemon -directory=yourproject/
+```bash
+$ ./CompileDaemon -directory=yourproject/
+```
 
 ## Installation
 
 You can use the `go` tool to install `CompileDaemon`:
 
+```bash
 	go get github.com/githubnemo/CompileDaemon
+```
 
 ## Command Line Options
 
@@ -37,13 +41,17 @@ You can use the `go` tool to install `CompileDaemon`:
 In its simplest form, the defaults will do. With the current working directory set
 to the source directory you can simply…
 
-    $ CompileDaemon
+```bash
+$ CompileDaemon
+```
 
 … and it will recompile your code whenever you save a source file.
 
 If you want it to also run your program each time it builds you might add…
 
-    $ CompileDaemon -command="./MyProgram -my-options"
+```bash
+$ CompileDaemon -command="./MyProgram -my-options"
+```
 
 … and it will also keep a copy of your program running. Killing the old one and
 starting a new one each time you build.
@@ -51,11 +59,21 @@ starting a new one each time you build.
 You may find that you need to exclude some directories and files from
 monitoring, such as a .git repository or emacs temporary files…
 
-    $ CompileDaemon -exclude-dir=.git -exclude=".#*" …
+```bash
+$ CompileDaemon -exclude-dir=.git -exclude=".#*" …
+```
 
 If you want to monitor files other than .go and .c files you might…
 
-    $ CompileDaemon -include=Makefile -include="*.less" -include="*.tmpl"
+```bash
+$ CompileDaemon -include=Makefile -include="*.less" -include="*.tmpl"
+```
+
+If you only need to work with the file that changes, the $FILE variable has the modified file path
+
+```bash
+$ CompileDaemon --build="go build \$FILE"
+```
 
 ## Notes
 
