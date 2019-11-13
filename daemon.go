@@ -34,6 +34,10 @@ If you want to monitor files other than .go and .c files you might…
 
     $ CompileDaemon -include=Makefile -include="*.less" -include="*.tmpl"
 
+If you only need to work with the file that changes, the $FILE variable has the modified file path
+
+    $ CompileDaemon --build="go build \$FILE"
+
 Options
 
 There are command line options.
@@ -42,7 +46,7 @@ There are command line options.
 	-directory=XXX    – Which directory to monitor for changes
 	-recursive=XXX    – Look into subdirectories
 	-exclude-dir=XXX  – Exclude directories matching glob pattern XXX
-	-exlude=XXX       – Exclude files whose basename matches glob pattern XXX
+	-exclude=XXX       – Exclude files whose basename matches glob pattern XXX
 	-include=XXX      – Include files whose basename matches glob pattern XXX
 	-pattern=XXX      – Include files whose path matches regexp XXX
 
@@ -126,6 +130,48 @@ var (
 	flagExcludedFiles globList
 	flagIncludedFiles globList
 )
+
+func helpMsg(compilerName string) string {
+	return strings.Replace(`Copyright (c) 2013, Marian Tietz
+
+Examples
+
+In its simplest form, the defaults will do. With the current working directory set
+to the source directory you can simply…
+
+    $ CompileDaemon
+
+… and it will recompile your code whenever you save a source file.
+
+If you want it to also run your program each time it builds you might add…
+
+    $ CompileDaemon -command="./MyProgram -my-options"
+
+… and it will also keep a copy of your program running. Killing the old one and
+starting a new one each time you build. For advanced usage you can also supply
+the changed file to the command by doing…
+
+	$ CompileDaemon -command="./MyProgram -my-options %%[1]s"
+
+…but note that this will not be set on the first start.
+
+You may find that you need to exclude some directories and files from
+monitoring, such as a .git repository or emacs temporary files…
+
+    $ CompileDaemon -exclude-dir=.git -exclude=".#*"
+
+If you want to monitor files other than .go and .c files you might…
+
+    $ CompileDaemon -include=Makefile -include="*.less" -include="*.tmpl"
+
+If you only need to work with the file that changes, the $FILE variable has the modified file path
+
+    $ CompileDaemon --build="go build \$FILE"
+
+Usage of CompileDaemon:
+
+`, "CompileDaemon", compilerName, -1)
+}
 
 func okColor(format string, args ...interface{}) string {
 	if *flagColor {
@@ -371,8 +417,7 @@ func main() {
 	flag.Var(&flagExcludedFiles, "exclude", " Don't watch files matching this name")
 	flag.Var(&flagIncludedFiles, "include", " Watch files matching this name")
 	flag.Usage = func() {
-		fmt.Print("Copyright (c) 2013, Marian Tietz\n\n")
-		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, helpMsg(os.Args[0]))
 		flag.PrintDefaults()
 	}
 
