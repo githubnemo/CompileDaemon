@@ -15,22 +15,22 @@ You can use the `go` tool to install `CompileDaemon`:
 
 ## Command Line Options
 
-|Option    | Default     | Description|
-|--------- | ----------- | -----------|
-| | | **actions** |
-|`-build=…`   | go build    | Specify the command to run when rebuilding is required.|
-|`-command=…` | *none*      | Specify the command to run after a succesful build. The default is to run nothing. This command is issued with the working directory set to -directory.|
-| | | **file selection** |
-|`-directory=…` | . | Which directory to watch.|
-|`-recursive=…` | true      | Recurse down the specified directory|
-|`-exclude-dir=…` | none | Do not watch directories matching this glob pattern, e.g. ".git". You may have multiples of this flag.|
-|`-exclude=…` | none | Exclude files matching this glob pattern, e.g. ".#*" ignores emacs temporary files. You may have multiples of this flag.|
-|`-include=…` | none | Include files whose last path component matches this glob pattern. You may have multiples of this flag.|
-|`-pattern=…` | (.+\\.go&#124;.+\\.c)$ | A regular expression which matches the files to watch. The default watches *.go* and *.c* files.|
-| | | **misc** |
-|`-color=_` | false | Colorize the output of the daemon's status messages. |
-|`-log-prefix=_` | true | Prefix all child process output with stdout/stderr labels and log timestamps. |
-|`-graceful-kill=_`| false | On supported platforms, send the child process a SIGTERM to allow it to exit gracefully if possible. |
+| Option             | Default                | Description                                                                                                                                             |
+| ------------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|                    |                        | **actions**                                                                                                                                             |
+| `-build=…`         | go build               | Specify the command to run when rebuilding is required.                                                                                                 |
+| `-command=…`       | *none*                 | Specify the command to run after a succesful build. The default is to run nothing. This command is issued with the working directory set to -directory. |
+|                    |                        | **file selection**                                                                                                                                      |
+| `-directory=…`     | .                      | Which directory to watch.                                                                                                                               |
+| `-recursive=…`     | true                   | Recurse down the specified directory                                                                                                                    |
+| `-exclude-dir=…`   | none                   | Do not watch directories matching this glob pattern, e.g. ".git". You may have multiples of this flag.                                                  |
+| `-exclude=…`       | none                   | Exclude files matching this glob pattern, e.g. ".#*" ignores emacs temporary files. You may have multiples of this flag.                                |
+| `-include=…`       | none                   | Include files whose last path component matches this glob pattern. You may have multiples of this flag.                                                 |
+| `-pattern=…`       | (.+\\.go&#124;.+\\.c)$ | A regular expression which matches the files to watch. The default watches *.go* and *.c* files.                                                        |
+|                    |                        | **misc**                                                                                                                                                |
+| `-color=_`         | false                  | Colorize the output of the daemon's status messages.                                                                                                    |
+| `-log-prefix=_`    | true                   | Prefix all child process output with stdout/stderr labels and log timestamps.                                                                           |
+| `-graceful-kill=_` | false                  | On supported platforms, send the child process a SIGTERM to allow it to exit gracefully if possible.                                                    |
 
 ## Examples
 
