@@ -262,10 +262,14 @@ func runner(commandTemplate string, buildStarted <-chan string, buildSuccess <-c
 
 	go logger(pipeChan)
 
+	// Launch concurrent process watching for signals from outside that
+	// indicate termination to kill the running process alongside
+	// CompileDaemon to prevent orphan processes.
 	go func() {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, fatalSignals...)
-		<-sigChan
+		processSignalChannel := make(chan os.Signal, 1)
+		signal.Notify(processSignalChannel, fatalSignals...)
+		<-processSignalChannel
+
 		log.Println(okColor("Received signal, terminating cleanly."))
 		if currentProcess != nil {
 			killProcess(currentProcess)
@@ -276,8 +280,8 @@ func runner(commandTemplate string, buildStarted <-chan string, buildSuccess <-c
 	for {
 		eventPath := <-buildStarted
 
-		// append %0.s to use format specifier even if not supplied by user
-		// to suppress warning in returned string.
+		// prepend %0.s (which adds nothing) to prevent warning about missing
+		// format specifier if the user did not supply one.
 		command := fmt.Sprintf("%0.s"+commandTemplate, eventPath)
 
 		if !*flagCommandStop {
@@ -289,6 +293,7 @@ func runner(commandTemplate string, buildStarted <-chan string, buildSuccess <-c
 		if currentProcess != nil {
 			killProcess(currentProcess)
 		}
+
 		if *flagCommandStop {
 			log.Println(okColor("Command stopped. Waiting for build to complete."))
 			if !<-buildSuccess {
