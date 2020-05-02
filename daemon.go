@@ -107,7 +107,6 @@ func (g *globList) Matches(value string) bool {
 }
 
 var (
-	flagDirectory       = flag.String("directory", ".", "Directory to watch for changes")
 	flagPattern         = flag.String("pattern", FilePattern, "Pattern of watched files")
 	flagCommand         = flag.String("command", "", "Command to run and restart after build")
 	flagCommandStop     = flag.Bool("command-stop", false, "Stop command before building")
@@ -122,6 +121,7 @@ var (
 	flagVerbose         = flag.Bool("verbose", false, "Be verbose about which directories are watched.")
 
 	// initialized in main() due to custom type.
+	flagDirectories   globList
 	flagExcludedDirs  globList
 	flagExcludedFiles globList
 	flagIncludedFiles globList
@@ -157,8 +157,8 @@ func build() bool {
 
 	if *flagBuildDir != "" {
 		cmd.Dir = *flagBuildDir
-	} else {
-		cmd.Dir = *flagDirectory
+	} else if len(flagDirectories) > 0 {
+		cmd.Dir = flagDirectories[0]
 	}
 
 	output, err := cmd.CombinedOutput()
@@ -367,9 +367,10 @@ func flusher(buildStarted <-chan string, buildSuccess <-chan bool) {
 }
 
 func main() {
-	flag.Var(&flagExcludedDirs, "exclude-dir", " Don't watch directories matching this name")
-	flag.Var(&flagExcludedFiles, "exclude", " Don't watch files matching this name")
-	flag.Var(&flagIncludedFiles, "include", " Watch files matching this name")
+	flag.Var(&flagDirectories, "directory", "Directory to watch for changes, can be set more than once")
+	flag.Var(&flagExcludedDirs, "exclude-dir", " Don't watch directories matching this name, can be set more than once")
+	flag.Var(&flagExcludedFiles, "exclude", " Don't watch files matching this name, can be set more than once")
+	flag.Var(&flagIncludedFiles, "include", " Watch files matching this name, can be set more than once")
 
 	flag.Parse()
 
@@ -377,9 +378,8 @@ func main() {
 		log.SetFlags(0)
 	}
 
-	if *flagDirectory == "" {
-		fmt.Fprintf(os.Stderr, "-directory=... is required.\n")
-		os.Exit(1)
+	if len(flagDirectories) == 0 {
+		log.Fatal("-directory must be specified at least once.")
 	}
 
 	if *flagGracefulKill && !gracefulTerminationPossible() {
@@ -394,32 +394,33 @@ func main() {
 
 	defer watcher.Close()
 
-	if *flagRecursive == true {
-		err = filepath.Walk(*flagDirectory, func(path string, info os.FileInfo, err error) error {
-			if err == nil && info.IsDir() {
-				if flagExcludedDirs.Matches(path) {
-					return filepath.SkipDir
-				} else {
-					if *flagVerbose {
-						log.Printf("Watching directory '%s' for changes.\n", path)
+	for _, flagDirectory := range flagDirectories {
+		if *flagRecursive == true {
+			err = filepath.Walk(flagDirectory, func(path string, info os.FileInfo, err error) error {
+				if err == nil && info.IsDir() {
+					if flagExcludedDirs.Matches(path) {
+						return filepath.SkipDir
+					} else {
+						if *flagVerbose {
+							log.Printf("Watching directory '%s' for changes.\n", path)
+						}
+						return watcher.Add(path)
 					}
-					return watcher.Add(path)
 				}
+				return err
+			})
+
+			if err != nil {
+				log.Fatal("filepath.Walk():", err)
 			}
-			return err
-		})
 
-		if err != nil {
-			log.Fatal("filepath.Walk():", err)
-		}
-
-		if err := watcher.Add(*flagDirectory); err != nil {
-			log.Fatal("watcher.Add():", err)
-		}
-
-	} else {
-		if err := watcher.Add(*flagDirectory); err != nil {
-			log.Fatal("watcher.Add():", err)
+			if err := watcher.Add(flagDirectory); err != nil {
+				log.Fatal("watcher.Add():", err)
+			}
+		} else {
+			if err := watcher.Add(flagDirectory); err != nil {
+				log.Fatal("watcher.Add():", err)
+			}
 		}
 	}
 
