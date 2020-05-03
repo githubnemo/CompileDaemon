@@ -379,7 +379,7 @@ func main() {
 	}
 
 	if len(flagDirectories) == 0 {
-		log.Fatal("-directory must be specified at least once.")
+		flagDirectories = globList([]string{"."})
 	}
 
 	if *flagGracefulKill && !gracefulTerminationPossible() {
