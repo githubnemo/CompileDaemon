@@ -13,6 +13,12 @@ You can use the `go` tool to install `CompileDaemon`:
 
 	go get github.com/githubnemo/CompileDaemon
 
+## Development
+
+You need to use Go 1.11 or higher to build Compile Daemon, and you need to set
+the env var `GO111MODULE=on`, which enables you to develop outside of
+`$GOPATH/src`.
+
 ## Command Line Options
 
 |Option    | Default     | Description|
