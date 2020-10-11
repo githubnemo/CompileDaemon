@@ -63,7 +63,7 @@ If you want to monitor files other than .go and .c files you might…
 
     $ CompileDaemon -include=Makefile -include="*.less" -include="*.tmpl"
 
-## Notes
+## Common Issues
 
 ### Too many open files
 
@@ -71,6 +71,9 @@ If you get an error for too many open files, you might wish to exclude your .git
 
 If you still have too many open files, then you need to raise your process's file limit using the `ulimit` command. Something like `ulimit -n 1024` will probably take care of it. There is also a sysctl based limit which you may reach and need to adjust.
 
+### `filepath.Walk() no space left on device`
+
+As described in [this issue](https://github.com/githubnemo/CompileDaemon/issues/23) it might happen that you run out of inotify watchers which are limited by your system configuration. Please consider increasing them as is documented [here](https://github.com/guard/listen/wiki/Increasing-the-amount-of-inotify-watchers).
 
 ## Project Details
 
