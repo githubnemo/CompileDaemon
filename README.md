@@ -33,6 +33,8 @@ the env var `GO111MODULE=on`, which enables you to develop outside of
 |`-exclude=…` | none | Exclude files matching this glob pattern, e.g. ".#*" ignores emacs temporary files. You may have multiples of this flag.|
 |`-include=…` | none | Include files whose last path component matches this glob pattern. You may have multiples of this flag.|
 |`-pattern=…` | (.+\\.go&#124;.+\\.c)$ | A regular expression which matches the files to watch. The default watches *.go* and *.c* files.|
+| | | **file watch** |
+|`-polling=…` | false | Which method to detect file changes.
 | | | **misc** |
 |`-color=_` | false | Colorize the output of the daemon's status messages. |
 |`-log-prefix=_` | true | Prefix all child process output with stdout/stderr labels and log timestamps. |
