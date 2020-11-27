@@ -15,6 +15,7 @@ import (
 type FileWatcher interface {
 	Close() error
 	AddFiles(pattern *regexp.Regexp) error
+	add(path string) error
 	Watch(jobs chan<- string, pattern *regexp.Regexp)
 }
 
@@ -27,36 +28,7 @@ func (n NotifyWatcher) Close() error {
 }
 
 func (n NotifyWatcher) AddFiles(pattern *regexp.Regexp) error {
-	for _, flagDirectory := range flagDirectories {
-		if *flagRecursive == true {
-			err := filepath.Walk(flagDirectory, func(path string, info os.FileInfo, err error) error {
-				if err == nil && info.IsDir() {
-					if flagExcludedDirs.Matches(path) {
-						return filepath.SkipDir
-					} else {
-						if *flagVerbose {
-							log.Printf("Watching directory '%s' for changes.\n", path)
-						}
-						return n.watcher.Add(path)
-					}
-				}
-				return err
-			})
-
-			if err != nil {
-				return fmt.Errorf("filepath.Walk(): %v", err)
-			}
-
-			if err := n.watcher.Add(flagDirectory); err != nil {
-				return fmt.Errorf("NotifyWatcher.Add(): %v", err)
-			}
-		} else {
-			if err := n.watcher.Add(flagDirectory); err != nil {
-				return fmt.Errorf("NotifyWatcher.Add(): %v", err)
-			}
-		}
-	}
-	return nil
+	return addFiles(n)
 }
 
 func (n NotifyWatcher) Watch(jobs chan<- string, pattern *regexp.Regexp) {
@@ -90,6 +62,10 @@ func (n NotifyWatcher) Watch(jobs chan<- string, pattern *regexp.Regexp) {
 	}
 }
 
+func (n NotifyWatcher) add(path string) error {
+	return n.watcher.Add(path)
+}
+
 type PollingWatcher struct {
 	watcher *pollingWatcher.Watcher
 }
@@ -102,36 +78,7 @@ func (p PollingWatcher) Close() error {
 func (p PollingWatcher) AddFiles(pattern *regexp.Regexp) error {
 	p.watcher.AddFilterHook(pollingWatcher.RegexFilterHook(pattern, false))
 
-	for _, flagDirectory := range flagDirectories {
-		if *flagRecursive == true {
-			err := filepath.Walk(flagDirectory, func(path string, info os.FileInfo, err error) error {
-				if err == nil && info.IsDir() {
-					if flagExcludedDirs.Matches(path) {
-						return filepath.SkipDir
-					} else {
-						if *flagVerbose {
-							log.Printf("Watching directory '%s' for changes.\n", path)
-						}
-						return p.watcher.Add(path)
-					}
-				}
-				return err
-			})
-
-			if err != nil {
-				return fmt.Errorf("filepath.Walk(): %v", err)
-			}
-
-			if err := p.watcher.Add(flagDirectory); err != nil {
-				return fmt.Errorf("PollingWatcher.Add(): %v", err)
-			}
-		} else {
-			if err := p.watcher.Add(flagDirectory); err != nil {
-				return fmt.Errorf("PollingWatcher.AddFiles(): %v", err)
-			}
-		}
-	}
-	return nil
+	return addFiles(p)
 }
 
 func (p PollingWatcher) Watch(jobs chan<- string, pattern *regexp.Regexp) {
@@ -169,6 +116,10 @@ func (p PollingWatcher) Watch(jobs chan<- string, pattern *regexp.Regexp) {
 	}
 }
 
+func (p PollingWatcher) add(path string) error {
+	return p.watcher.Add(path)
+}
+
 func NewWatcher(usePolling bool) (FileWatcher, error) {
 	if usePolling {
 		w := pollingWatcher.New()
@@ -184,4 +135,37 @@ func NewWatcher(usePolling bool) (FileWatcher, error) {
 			watcher: w,
 		}, nil
 	}
+}
+
+func addFiles(fw FileWatcher) error {
+	for _, flagDirectory := range flagDirectories {
+		if *flagRecursive == true {
+			err := filepath.Walk(flagDirectory, func(path string, info os.FileInfo, err error) error {
+				if err == nil && info.IsDir() {
+					if flagExcludedDirs.Matches(path) {
+						return filepath.SkipDir
+					} else {
+						if *flagVerbose {
+							log.Printf("Watching directory '%s' for changes.\n", path)
+						}
+						return fw.add(path)
+					}
+				}
+				return err
+			})
+
+			if err != nil {
+				return fmt.Errorf("filepath.Walk(): %v", err)
+			}
+
+			if err := fw.add(flagDirectory); err != nil {
+				return fmt.Errorf("FileWatcher.Add(): %v", err)
+			}
+		} else {
+			if err := fw.add(flagDirectory); err != nil {
+				return fmt.Errorf("FileWatcher.AddFiles(): %v", err)
+			}
+		}
+	}
+	return nil
 }
