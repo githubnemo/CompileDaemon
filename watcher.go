@@ -104,34 +104,40 @@ func (p PollingWatcher) AddFiles(pattern *regexp.Regexp) error {
 
 	for _, flagDirectory := range flagDirectories {
 		if *flagRecursive == true {
-			if err := p.watcher.AddRecursive(flagDirectory); err != nil {
-				return fmt.Errorf("PollingWatcher.AddFiles(): %v", err)
+			err := filepath.Walk(flagDirectory, func(path string, info os.FileInfo, err error) error {
+				if err == nil && info.IsDir() {
+					if flagExcludedDirs.Matches(path) {
+						return filepath.SkipDir
+					} else {
+						if *flagVerbose {
+							log.Printf("Watching directory '%s' for changes.\n", path)
+						}
+						return p.watcher.Add(path)
+					}
+				}
+				return err
+			})
+
+			if err != nil {
+				return fmt.Errorf("filepath.Walk(): %v", err)
+			}
+
+			if err := p.watcher.Add(flagDirectory); err != nil {
+				return fmt.Errorf("PollingWatcher.Add(): %v", err)
 			}
 		} else {
 			if err := p.watcher.Add(flagDirectory); err != nil {
-				return fmt.Errorf("NotifyWatcher.AddFiles(): %v", err)
+				return fmt.Errorf("PollingWatcher.AddFiles(): %v", err)
 			}
-		}
-	}
-
-	if *flagVerbose {
-		for path, f := range p.watcher.WatchedFiles() {
-			fmt.Printf("Watching %s: %s\n", path, f.Name())
 		}
 	}
 	return nil
 }
 
 func (p PollingWatcher) Watch(jobs chan<- string, pattern *regexp.Regexp) {
-	// Parse the interval string into a time.Duration.
-	parsedInterval, err := time.ParseDuration(PollingInterval)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
 	// Start the watching process.
 	go func() {
-		if err := p.watcher.Start(parsedInterval); err != nil {
+		if err := p.watcher.Start(PollingInterval * time.Millisecond); err != nil {
 			log.Fatalln(err)
 		}
 	}()

@@ -84,8 +84,8 @@ import (
 // Milliseconds to wait for the next job to begin after a file change
 const WorkDelay = 900
 
-// ...
-const PollingInterval = "100ms"
+// Milliseconds of interval between polling file changes when polling option is selected
+const PollingInterval = 100
 
 // Default pattern to match files which trigger a build
 const FilePattern = `(.+\.go|.+\.c)$`
