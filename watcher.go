@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/fsnotify/fsnotify"
 	pollingWatcher "github.com/radovskyb/watcher"
@@ -12,41 +13,55 @@ import (
 	"time"
 )
 
+func pathMatches(cfg *WatcherConfig, pathName string) bool {
+	base := filepath.Base(pathName)
+	return (cfg.flagIncludedFiles.Matches(base) || matchesPattern(cfg.pattern, pathName)) &&
+		!cfg.flagExcludedFiles.Matches(base)
+}
+
+type WatcherConfig struct {
+	flagVerbose       bool
+	flagPolling       bool
+	flagRecursive     bool
+	flagDirectories   globList
+	flagExcludedDirs  globList
+	flagExcludedFiles globList
+	flagIncludedFiles globList
+	pattern           *regexp.Regexp
+}
+
 type FileWatcher interface {
 	Close() error
-	AddFiles(pattern *regexp.Regexp) error
+	AddFiles() error
 	add(path string) error
-	Watch(jobs chan<- string, pattern *regexp.Regexp)
+	Watch(jobs chan<- string)
+	getConfig() *WatcherConfig
 }
 
 type NotifyWatcher struct {
 	watcher *fsnotify.Watcher
+	cfg     *WatcherConfig
 }
 
 func (n NotifyWatcher) Close() error {
 	return n.watcher.Close()
 }
 
-func (n NotifyWatcher) AddFiles(pattern *regexp.Regexp) error {
+func (n NotifyWatcher) AddFiles() error {
 	return addFiles(n)
 }
 
-func (n NotifyWatcher) Watch(jobs chan<- string, pattern *regexp.Regexp) {
+func (n NotifyWatcher) Watch(jobs chan<- string) {
 	for {
 		select {
 		case ev := <-n.watcher.Events:
 			if ev.Op&fsnotify.Remove == fsnotify.Remove || ev.Op&fsnotify.Write == fsnotify.Write || ev.Op&fsnotify.Create == fsnotify.Create {
-				base := filepath.Base(ev.Name)
-
 				// Assume it is a directory and track it.
-				if *flagRecursive == true && !flagExcludedDirs.Matches(ev.Name) {
+				if n.cfg.flagRecursive == true && !n.cfg.flagExcludedDirs.Matches(ev.Name) {
 					n.watcher.Add(ev.Name)
 				}
-
-				if flagIncludedFiles.Matches(base) || matchesPattern(pattern, ev.Name) {
-					if !flagExcludedFiles.Matches(base) {
-						jobs <- ev.Name
-					}
+				if pathMatches(n.cfg, ev.Name) {
+					jobs <- ev.Name
 				}
 			}
 
@@ -66,8 +81,13 @@ func (n NotifyWatcher) add(path string) error {
 	return n.watcher.Add(path)
 }
 
+func (n NotifyWatcher) getConfig() *WatcherConfig {
+	return n.cfg
+}
+
 type PollingWatcher struct {
 	watcher *pollingWatcher.Watcher
+	cfg     *WatcherConfig
 }
 
 func (p PollingWatcher) Close() error {
@@ -75,13 +95,13 @@ func (p PollingWatcher) Close() error {
 	return nil
 }
 
-func (p PollingWatcher) AddFiles(pattern *regexp.Regexp) error {
-	p.watcher.AddFilterHook(pollingWatcher.RegexFilterHook(pattern, false))
+func (p PollingWatcher) AddFiles() error {
+	p.watcher.AddFilterHook(pollingWatcher.RegexFilterHook(p.cfg.pattern, false))
 
 	return addFiles(p)
 }
 
-func (p PollingWatcher) Watch(jobs chan<- string, pattern *regexp.Regexp) {
+func (p PollingWatcher) Watch(jobs chan<- string) {
 	// Start the watching process.
 	go func() {
 		if err := p.watcher.Start(PollingInterval * time.Millisecond); err != nil {
@@ -92,21 +112,16 @@ func (p PollingWatcher) Watch(jobs chan<- string, pattern *regexp.Regexp) {
 	for {
 		select {
 		case event := <-p.watcher.Event:
-			if *flagVerbose {
+			if p.cfg.flagVerbose {
 				// Print the event's info.
 				fmt.Println(event)
 			}
 
-			base := filepath.Base(event.Path)
-
-			if flagIncludedFiles.Matches(base) || matchesPattern(pattern, event.Path) {
-				if !flagExcludedFiles.Matches(base) {
-					jobs <- event.String()
-				}
+			if pathMatches(p.cfg, event.Path) {
+				jobs <- event.String()
 			}
 		case err := <-p.watcher.Error:
 			if err == pollingWatcher.ErrWatchedFileDeleted {
-				fmt.Println(err)
 				continue
 			}
 			log.Fatalln(err)
@@ -120,11 +135,20 @@ func (p PollingWatcher) add(path string) error {
 	return p.watcher.Add(path)
 }
 
-func NewWatcher(usePolling bool) (FileWatcher, error) {
-	if usePolling {
+func (p PollingWatcher) getConfig() *WatcherConfig {
+	return p.cfg
+}
+
+func NewWatcher(cfg *WatcherConfig) (FileWatcher, error) {
+	if cfg == nil {
+		err := errors.New("no config specified")
+		return nil, err
+	}
+	if cfg.flagPolling {
 		w := pollingWatcher.New()
 		return PollingWatcher{
 			watcher: w,
+			cfg:     cfg,
 		}, nil
 	} else {
 		w, err := fsnotify.NewWatcher()
@@ -133,19 +157,21 @@ func NewWatcher(usePolling bool) (FileWatcher, error) {
 		}
 		return NotifyWatcher{
 			watcher: w,
+			cfg:     cfg,
 		}, nil
 	}
 }
 
 func addFiles(fw FileWatcher) error {
-	for _, flagDirectory := range flagDirectories {
-		if *flagRecursive == true {
+	cfg := fw.getConfig()
+	for _, flagDirectory := range cfg.flagDirectories {
+		if cfg.flagRecursive == true {
 			err := filepath.Walk(flagDirectory, func(path string, info os.FileInfo, err error) error {
 				if err == nil && info.IsDir() {
-					if flagExcludedDirs.Matches(path) {
+					if cfg.flagExcludedDirs.Matches(path) {
 						return filepath.SkipDir
 					} else {
-						if *flagVerbose {
+						if cfg.flagVerbose {
 							log.Printf("Watching directory '%s' for changes.\n", path)
 						}
 						return fw.add(path)
