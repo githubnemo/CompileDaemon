@@ -84,9 +84,6 @@ import (
 // Milliseconds to wait for the next job to begin after a file change
 const WorkDelay = 900
 
-// Milliseconds of interval between polling file changes when polling option is selected
-const PollingInterval = 100
-
 // Default pattern to match files which trigger a build
 const FilePattern = `(.+\.go|.+\.c)$`
 
@@ -124,6 +121,7 @@ var (
 	flagGracefulTimeout = flag.Uint("graceful-timeout", 3, "Duration (in seconds) to wait for graceful kill to complete")
 	flagVerbose         = flag.Bool("verbose", false, "Be verbose about which directories are watched.")
 	flagPolling         = flag.Bool("polling", false, "Use polling method to watch file change instead of fsnotify")
+	flagPollingInterval = flag.Int("polling-interval", 100, "Milliseconds of interval between polling file changes when polling option is selected")
 
 	// initialized in main() due to custom type.
 	flagDirectories   globList
@@ -394,14 +392,15 @@ func main() {
 	pattern := regexp.MustCompile(*flagPattern)
 
 	cfg := &WatcherConfig{
-		flagVerbose:       *flagVerbose,
-		flagRecursive:     *flagRecursive,
-		flagPolling:       *flagPolling,
-		flagDirectories:   flagDirectories,
-		flagExcludedDirs:  flagExcludedDirs,
-		flagExcludedFiles: flagExcludedFiles,
-		flagIncludedFiles: flagIncludedFiles,
-		pattern:           pattern,
+		flagVerbose:         *flagVerbose,
+		flagRecursive:       *flagRecursive,
+		flagPolling:         *flagPolling,
+		flagPollingInterval: *flagPollingInterval,
+		flagDirectories:     flagDirectories,
+		flagExcludedDirs:    flagExcludedDirs,
+		flagExcludedFiles:   flagExcludedFiles,
+		flagIncludedFiles:   flagIncludedFiles,
+		pattern:             pattern,
 	}
 	watcher, err := NewWatcher(cfg)
 
