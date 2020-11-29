@@ -391,8 +391,19 @@ func main() {
 		log.Fatal("Graceful termination is not supported on your platform.")
 	}
 
+	pattern := regexp.MustCompile(*flagPattern)
 
-	watcher, err := NewWatcher(*flagPolling)
+	cfg := &WatcherConfig{
+		flagVerbose:       *flagVerbose,
+		flagRecursive:     *flagRecursive,
+		flagPolling:       *flagPolling,
+		flagDirectories:   flagDirectories,
+		flagExcludedDirs:  flagExcludedDirs,
+		flagExcludedFiles: flagExcludedFiles,
+		flagIncludedFiles: flagIncludedFiles,
+		pattern:           pattern,
+	}
+	watcher, err := NewWatcher(cfg)
 
 	if err != nil {
 		log.Fatal(err)
@@ -400,9 +411,7 @@ func main() {
 
 	defer watcher.Close()
 
-	pattern := regexp.MustCompile(*flagPattern)
-
-	err = watcher.AddFiles(pattern)
+	err = watcher.AddFiles()
 	if err != nil {
 		log.Fatal("watcher.Addfiles():", err)
 	}
@@ -419,5 +428,5 @@ func main() {
 		go flusher(buildStarted, buildSuccess)
 	}
 
-	watcher.Watch(jobs, pattern) // start watching files
+	watcher.Watch(jobs) // start watching files
 }
