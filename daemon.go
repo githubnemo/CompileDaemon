@@ -47,7 +47,7 @@ There are command line options.
 	-pattern=XXX      – Include files whose path matches regexp XXX
 
 	FILE WATCH
-	-polling          - Which method to detect file changes. default is false
+	-polling          - Use polling instead of FS notifications to detect changes. Default is false
 
 	MISC
 	-color            - Enable colorized output
@@ -391,7 +391,6 @@ func main() {
 		log.Fatal("Graceful termination is not supported on your platform.")
 	}
 
-	///////////////////////////////
 
 	watcher, err := NewWatcher(*flagPolling)
 
@@ -403,7 +402,6 @@ func main() {
 
 	pattern := regexp.MustCompile(*flagPattern)
 
-	// add files
 	err = watcher.AddFiles(pattern)
 	if err != nil {
 		log.Fatal("watcher.Addfiles():", err)
