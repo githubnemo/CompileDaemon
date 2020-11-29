@@ -78,6 +78,28 @@ If you still have too many open files, then you need to raise your process's fil
 
 As described in [this issue](https://github.com/githubnemo/CompileDaemon/issues/23) it might happen that you run out of inotify watchers which are limited by your system configuration. Please consider increasing them as is documented [here](https://github.com/guard/listen/wiki/Increasing-the-amount-of-inotify-watchers).
 
+### Docker + Mac OS X
+
+Some issues ([here][1] and [here][2]) report that changes on Docker
+volumes under Mac OS X are not reported.
+
+There seem to be issues with either the implementation of the bind file
+system mount between Mac OS X hosts and Docker containers or in
+`fsnotify/fsnotify` or a combination of both. As long as this is not
+resolved, a possible workaround is to use polling:
+
+```
+CompileDaemon -polling
+```
+
+This will actively watch for changes, so it naturally uses more CPU
+resources. You can tune the polling interval to your liking using the
+`-polling-interval=N` parameter but be advised: you should never use
+this in production as it is simply too wasteful.
+
+[1]: https://github.com/githubnemo/CompileDaemon/issues/44
+[2]: https://github.com/githubnemo/CompileDaemon/issues/47
+
 ## Project Details
 
 ### Credits
