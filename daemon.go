@@ -48,6 +48,7 @@ There are command line options.
 
 	FILE WATCH
 	-polling          - Use polling instead of FS notifications to detect changes. Default is false
+	-polling-interval - Milliseconds of interval between polling file changes when polling option is selected
 
 	MISC
 	-color            - Enable colorized output

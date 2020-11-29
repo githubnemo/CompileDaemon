@@ -34,7 +34,8 @@ the env var `GO111MODULE=on`, which enables you to develop outside of
 |`-include=…` | none | Include files whose last path component matches this glob pattern. You may have multiples of this flag.|
 |`-pattern=…` | (.+\\.go&#124;.+\\.c)$ | A regular expression which matches the files to watch. The default watches *.go* and *.c* files.|
 | | | **file watch** |
-|`-polling=…` | false | Which method to detect file changes.
+|`-polling=…` | false | Use polling instead of FS notifications to detect changes. Default is false
+|`-polling-interval=…` | 100 | Milliseconds of interval between polling file changes when polling option is selected
 | | | **misc** |
 |`-color=_` | false | Colorize the output of the daemon's status messages. |
 |`-log-prefix=_` | true | Prefix all child process output with stdout/stderr labels and log timestamps. |
