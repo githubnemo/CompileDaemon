@@ -13,21 +13,26 @@ import (
 	"time"
 )
 
-func pathMatches(cfg *WatcherConfig, pathName string) bool {
-	base := filepath.Base(pathName)
-	return (cfg.flagIncludedFiles.Matches(base) || matchesPattern(cfg.pattern, pathName)) &&
+func directoryShouldBeTracked(cfg *WatcherConfig, path string) bool {
+	return cfg.flagRecursive == true && !cfg.flagExcludedDirs.Matches(path)
+}
+
+func pathMatches(cfg *WatcherConfig, path string) bool {
+	base := filepath.Base(path)
+	return (cfg.flagIncludedFiles.Matches(base) || matchesPattern(cfg.pattern, path)) &&
 		!cfg.flagExcludedFiles.Matches(base)
 }
 
 type WatcherConfig struct {
-	flagVerbose       bool
-	flagPolling       bool
-	flagRecursive     bool
-	flagDirectories   globList
-	flagExcludedDirs  globList
-	flagExcludedFiles globList
-	flagIncludedFiles globList
-	pattern           *regexp.Regexp
+	flagVerbose         bool
+	flagPolling         bool
+	flagRecursive       bool
+	flagPollingInterval int
+	flagDirectories     globList
+	flagExcludedDirs    globList
+	flagExcludedFiles   globList
+	flagIncludedFiles   globList
+	pattern             *regexp.Regexp
 }
 
 type FileWatcher interface {
@@ -57,7 +62,7 @@ func (n NotifyWatcher) Watch(jobs chan<- string) {
 		case ev := <-n.watcher.Events:
 			if ev.Op&fsnotify.Remove == fsnotify.Remove || ev.Op&fsnotify.Write == fsnotify.Write || ev.Op&fsnotify.Create == fsnotify.Create {
 				// Assume it is a directory and track it.
-				if n.cfg.flagRecursive == true && !n.cfg.flagExcludedDirs.Matches(ev.Name) {
+				if directoryShouldBeTracked(n.cfg, ev.Name) {
 					n.watcher.Add(ev.Name)
 				}
 				if pathMatches(n.cfg, ev.Name) {
@@ -104,7 +109,7 @@ func (p PollingWatcher) AddFiles() error {
 func (p PollingWatcher) Watch(jobs chan<- string) {
 	// Start the watching process.
 	go func() {
-		if err := p.watcher.Start(PollingInterval * time.Millisecond); err != nil {
+		if err := p.watcher.Start(time.Duration(p.cfg.flagPollingInterval) * time.Millisecond); err != nil {
 			log.Fatalln(err)
 		}
 	}()
