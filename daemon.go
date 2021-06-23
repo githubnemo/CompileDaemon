@@ -151,29 +151,37 @@ func failColor(format string, args ...interface{}) string {
 func build() bool {
 	log.Println(okColor("Running build command!"))
 
-	args := strings.Split(*flagBuild, " ")
-	if len(args) == 0 {
-		// If the user has specified and empty then we are done.
-		return true
+	commands := strings.Split(*flagBuild, "&&")
+	success := true
+	for _, c := range commands {
+		c = strings.TrimSpace(c)
+		args := strings.Split(c, " ")
+		if len(args) == 0 {
+			// If the user has specified and empty then we are done.
+			return true
+		}
+
+		cmd := exec.Command(args[0], args[1:]...)
+
+		if *flagBuildDir != "" {
+			cmd.Dir = *flagBuildDir
+		} else if len(flagDirectories) > 0 {
+			cmd.Dir = flagDirectories[0]
+		}
+
+		output, err := cmd.CombinedOutput()
+
+		if err == nil {
+			log.Println(okColor("Build ok."))
+		} else {
+			log.Println(failColor("Error while building:\n"), failColor(string(output)))
+			if success {
+				success = false
+			}
+		}
 	}
 
-	cmd := exec.Command(args[0], args[1:]...)
-
-	if *flagBuildDir != "" {
-		cmd.Dir = *flagBuildDir
-	} else if len(flagDirectories) > 0 {
-		cmd.Dir = flagDirectories[0]
-	}
-
-	output, err := cmd.CombinedOutput()
-
-	if err == nil {
-		log.Println(okColor("Build ok."))
-	} else {
-		log.Println(failColor("Error while building:\n"), failColor(string(output)))
-	}
-
-	return err == nil
+	return success
 }
 
 func matchesPattern(pattern *regexp.Regexp, file string) bool {
