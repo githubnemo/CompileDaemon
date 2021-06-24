@@ -108,12 +108,24 @@ func (g *globList) Matches(value string) bool {
 	return false
 }
 
+type buildCommandList struct {
+	commands []string
+}
+
+func (f *buildCommandList) String() string {
+	return ""
+}
+
+func (f *buildCommandList) Set(s string) error {
+	f.commands = append(f.commands, s)
+	return nil
+}
+
 var (
 	flagPattern         = flag.String("pattern", FilePattern, "Pattern of watched files")
 	flagCommand         = flag.String("command", "", "Command to run and restart after build")
 	flagCommandStop     = flag.Bool("command-stop", false, "Stop command before building")
 	flagRecursive       = flag.Bool("recursive", true, "Watch all dirs. recursively")
-	flagBuild           = flag.String("build", "go build", "Command to rebuild after changes")
 	flagBuildDir        = flag.String("build-dir", "", "Directory to run build command in.  Defaults to directory")
 	flagRunDir          = flag.String("run-dir", "", "Directory to run command in.  Defaults to directory")
 	flagColor           = flag.Bool("color", false, "Colorize output for CompileDaemon status messages")
@@ -125,10 +137,11 @@ var (
 	flagPollingInterval = flag.Int("polling-interval", 100, "Milliseconds of interval between polling file changes when polling option is selected")
 
 	// initialized in main() due to custom type.
-	flagDirectories   globList
-	flagExcludedDirs  globList
-	flagExcludedFiles globList
-	flagIncludedFiles globList
+	flagDirectories      globList
+	flagExcludedDirs     globList
+	flagExcludedFiles    globList
+	flagIncludedFiles    globList
+	flagBuildCommandList buildCommandList
 )
 
 func okColor(format string, args ...interface{}) string {
@@ -149,39 +162,41 @@ func failColor(format string, args ...interface{}) string {
 
 // Run `go build` and print the output if something's gone wrong.
 func build() bool {
-	log.Println(okColor("Running build command!"))
+	log.Println(okColor("Running build commands!"))
 
-	commands := strings.Split(*flagBuild, "&&")
-	success := true
-	for _, c := range commands {
-		c = strings.TrimSpace(c)
-		args := strings.Split(c, " ")
-		if len(args) == 0 {
-			// If the user has specified and empty then we are done.
-			return true
-		}
-
-		cmd := exec.Command(args[0], args[1:]...)
-
-		if *flagBuildDir != "" {
-			cmd.Dir = *flagBuildDir
-		} else if len(flagDirectories) > 0 {
-			cmd.Dir = flagDirectories[0]
-		}
-
-		output, err := cmd.CombinedOutput()
-
-		if err == nil {
-			log.Println(okColor("Build ok."))
-		} else {
-			log.Println(failColor("Error while building:\n"), failColor(string(output)))
-			if success {
-				success = false
-			}
+	for _, c := range flagBuildCommandList.commands {
+		b := runBuildCommand(c)
+		if !b {
+			return b
 		}
 	}
+	log.Println(okColor("Build ok."))
 
-	return success
+	return true
+}
+
+func runBuildCommand(c string) bool {
+	c = strings.TrimSpace(c)
+	args := strings.Split(c, " ")
+	if len(args) == 0 {
+		return true
+	}
+
+	cmd := exec.Command(args[0], args[1:]...)
+
+	if *flagBuildDir != "" {
+		cmd.Dir = *flagBuildDir
+	} else if len(flagDirectories) > 0 {
+		cmd.Dir = flagDirectories[0]
+	}
+
+	output, err := cmd.CombinedOutput()
+
+	if err != nil {
+		log.Println(failColor("Error while building:\n"), failColor(string(output)))
+		return false
+	}
+	return true
 }
 
 func matchesPattern(pattern *regexp.Regexp, file string) bool {
@@ -383,6 +398,7 @@ func main() {
 	flag.Var(&flagExcludedDirs, "exclude-dir", " Don't watch directories matching this name, can be set more than once")
 	flag.Var(&flagExcludedFiles, "exclude", " Don't watch files matching this name, can be set more than once")
 	flag.Var(&flagIncludedFiles, "include", " Watch files matching this name, can be set more than once")
+	flag.Var(&flagBuildCommandList, "build", "Command to rebuild after changes, can be set more than once")
 
 	flag.Parse()
 
@@ -396,6 +412,10 @@ func main() {
 
 	if *flagGracefulKill && !gracefulTerminationPossible() {
 		log.Fatal("Graceful termination is not supported on your platform.")
+	}
+
+	if len(flagBuildCommandList.commands) == 0 {
+		_ = flagBuildCommandList.Set("go build")
 	}
 
 	pattern := regexp.MustCompile(*flagPattern)
