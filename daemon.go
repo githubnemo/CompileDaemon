@@ -398,7 +398,7 @@ func main() {
 	flag.Var(&flagExcludedDirs, "exclude-dir", " Don't watch directories matching this name, can be set more than once")
 	flag.Var(&flagExcludedFiles, "exclude", " Don't watch files matching this name, can be set more than once")
 	flag.Var(&flagIncludedFiles, "include", " Watch files matching this name, can be set more than once")
-	flag.Var(&flagBuildCommandList, "build", "Command to rebuild after changes, can be set more than once")
+	flag.Var(&flagBuildCommandList, "build", "Command to rebuild after changes, can be set more than once. Defaults to 'go build'.")
 
 	flag.Parse()
 
