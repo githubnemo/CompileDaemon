@@ -165,21 +165,23 @@ func build() bool {
 	log.Println(okColor("Running build commands!"))
 
 	for _, c := range flagBuildCommandList.commands {
-		b := runBuildCommand(c)
-		if !b {
-			return b
+		err := runBuildCommand(c)
+		if err != nil {
+			log.Println(failColor("Command failed:\n"), failColor(c))
+			return false
 		}
+		log.Println(okColor("Command success:\n"), okColor(c))
 	}
 	log.Println(okColor("Build ok."))
 
 	return true
 }
 
-func runBuildCommand(c string) bool {
+func runBuildCommand(c string) error {
 	c = strings.TrimSpace(c)
 	args := strings.Split(c, " ")
 	if len(args) == 0 {
-		return true
+		return nil
 	}
 
 	cmd := exec.Command(args[0], args[1:]...)
@@ -194,9 +196,9 @@ func runBuildCommand(c string) bool {
 
 	if err != nil {
 		log.Println(failColor("Error while building:\n"), failColor(string(output)))
-		return false
+		return err
 	}
-	return true
+	return nil
 }
 
 func matchesPattern(pattern *regexp.Regexp, file string) bool {
