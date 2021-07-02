@@ -167,7 +167,7 @@ func build() bool {
 	for _, c := range flagBuildCommandList.commands {
 		err := runBuildCommand(c)
 		if err != nil {
-			log.Println(failColor("Command failed:\n"), failColor(c))
+			log.Println(failColor("Command failed: "), failColor(c))
 			return false
 		}
 	}
