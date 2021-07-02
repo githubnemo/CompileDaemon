@@ -170,7 +170,6 @@ func build() bool {
 			log.Println(failColor("Command failed:\n"), failColor(c))
 			return false
 		}
-		log.Println(okColor("Command success:\n"), okColor(c))
 	}
 	log.Println(okColor("Build ok."))
 
