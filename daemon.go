@@ -256,12 +256,17 @@ func logger(pipeChan <-chan io.ReadCloser) {
 }
 
 // Start the supplied command and return stdout and stderr pipes for logging.
-func startCommand(command string) (cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, err error) {
+func startCommand(command string) (cmd *exec.Cmd, stdin io.WriteCloser, stdout io.ReadCloser, stderr io.ReadCloser, err error) {
 	args := strings.Split(command, " ")
 	cmd = exec.Command(args[0], args[1:]...)
 
 	if *flagRunDir != "" {
 		cmd.Dir = *flagRunDir
+	}
+
+	if stdin, err = cmd.StdinPipe(); err != nil {
+		err = fmt.Errorf("can't get stdin pipe for command: %s", err)
+		return
 	}
 
 	if stdout, err = cmd.StdoutPipe(); err != nil {
@@ -287,7 +292,6 @@ func startCommand(command string) (cmd *exec.Cmd, stdout io.ReadCloser, stderr i
 func runner(commandTemplate string, buildStarted <-chan string, buildSuccess <-chan bool) {
 	var currentProcess *os.Process
 	pipeChan := make(chan io.ReadCloser)
-
 	go logger(pipeChan)
 
 	// Launch concurrent process watching for signals from outside that
@@ -305,8 +309,31 @@ func runner(commandTemplate string, buildStarted <-chan string, buildSuccess <-c
 		os.Exit(0)
 	}()
 
+
+
+	// These 2 channels are used for passing stdin to the launched command
+	restarted := make(chan struct{}) // signal for to writer goroutine to end
+	msg := make(chan string) // contains the lines read from stdin
+
+	// read lines from stdin and write the result to msg, allowing the input
+	// to be passed to the currently active command
+	go func() {
+			reader := bufio.NewReader(os.Stdin)
+			for {
+				s, err := reader.ReadString('\n')
+				if err == nil {
+					msg <- s
+				}
+			}
+		}()
+
 	for {
 		eventPath := <-buildStarted
+
+		// close + recreate this channel to ensure the goroutine writing 
+		// to commands stdin is closed  when it is restarted
+		close(restarted)
+		restarted = make(chan struct{})
 
 		// prepend %0.s (which adds nothing) to prevent warning about missing
 		// format specifier if the user did not supply one.
@@ -330,11 +357,26 @@ func runner(commandTemplate string, buildStarted <-chan string, buildSuccess <-c
 		}
 
 		log.Println(okColor("Restarting the given command."))
-		cmd, stdoutPipe, stderrPipe, err := startCommand(command)
+		cmd, stdinPipe, stdoutPipe, stderrPipe, err := startCommand(command)
+		defer stdinPipe.Close() 
 
 		if err != nil {
 			log.Fatal(failColor("Could not start command: %s", err))
 		}
+
+		// This goroutine will write the contents of the msg channel to
+		// the stdin of the currently launched command
+		go func() {
+			for {
+				select {
+					case input := <-msg:
+						io.WriteString(stdinPipe, input)
+					case <-restarted:
+						return
+					}
+			}
+		}()
+
 
 		pipeChan <- stdoutPipe
 		pipeChan <- stderrPipe
