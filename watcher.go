@@ -3,14 +3,15 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/fsnotify/fsnotify"
-	pollingWatcher "github.com/radovskyb/watcher"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"syscall"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
+	pollingWatcher "github.com/radovskyb/watcher"
 )
 
 func directoryShouldBeTracked(cfg *WatcherConfig, path string) bool {
@@ -171,8 +172,8 @@ func addFiles(fw FileWatcher) error {
 	cfg := fw.getConfig()
 	for _, flagDirectory := range cfg.flagDirectories {
 		if cfg.flagRecursive == true {
-			err := filepath.Walk(flagDirectory, func(path string, info os.FileInfo, err error) error {
-				if err == nil && info.IsDir() {
+			err := filepath.WalkDir(flagDirectory, func(path string, entry os.DirEntry, err error) error {
+				if err == nil && entry.IsDir() {
 					if cfg.flagExcludedDirs.Matches(path) {
 						return filepath.SkipDir
 					} else {
