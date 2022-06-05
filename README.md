@@ -66,6 +66,13 @@ If you want to monitor files other than .go and .c files you might…
 
     $ CompileDaemon -include=Makefile -include="*.less" -include="*.tmpl"
 
+## Security Considerations
+
+Beware that, in case you are using `CompileDaemon` in production to rebuild a
+binary (please explain to me why you would do this, but carry on), an attacker
+with write access is able to insert arbitrary code into your binary. So make
+sure that you secure write access to the file system appropriately.
+
 ## Common Issues
 
 ### Too many open files
