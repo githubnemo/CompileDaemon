@@ -14,7 +14,11 @@ var fatalSignals = []os.Signal{
 }
 
 func terminateGracefully(process *os.Process) error {
-	return process.Signal(syscall.SIGTERM)
+	return syscall.Kill(-process.Pid, syscall.SIGTERM)
+}
+
+func terminateHard(process *os.Process) error {
+	return syscall.Kill(-process.Pid, syscall.SIGKILL)
 }
 
 func gracefulTerminationPossible() bool {
