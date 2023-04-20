@@ -27,7 +27,8 @@ the env var `GO111MODULE=on`, which enables you to develop outside of
 |`-build=…`   | go build    | Specify the command to run when rebuilding is required.|
 |`-command=…` | *none*      | Specify the command to run after a succesful build. The default is to run nothing. This command is issued with the working directory set to -directory.|
 | | | **file selection** |
-|`-directory=…` | . | Which directory to watch.|
+|`-directory=…` | . | Which directory to watch. Will also be used as build directory unless `-build-dir` flag is provided as well.|
+|`-build-dir=…` | . | Explicitly set working directory for build command.|
 |`-recursive=…` | true      | Recurse down the specified directory|
 |`-exclude-dir=…` | none | Do not watch directories matching this glob pattern, e.g. ".git". You may have multiples of this flag.|
 |`-exclude=…` | none | Exclude files matching this glob pattern, e.g. ".#*" ignores emacs temporary files. You may have multiples of this flag.|
