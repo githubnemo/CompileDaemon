@@ -11,7 +11,7 @@ Usage:
 
 You can use the `go` tool to install `CompileDaemon`:
 
-	go get github.com/githubnemo/CompileDaemon
+	go install github.com/githubnemo/CompileDaemon@latest
 
 ## Development
 
