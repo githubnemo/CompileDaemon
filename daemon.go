@@ -77,7 +77,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/fatih/color"
@@ -257,10 +256,15 @@ func logger(pipeChan <-chan io.ReadCloser) {
 }
 
 // Start the supplied command and return stdout and stderr pipes for logging.
+//
+// Note that the command is run (on POSIX systems) with a process group id
+// and is also killed as such to prevent dangling processes and open sockets
+// by unkilled child processes.
 func startCommand(command string) (cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, err error) {
 	args := strings.Split(command, " ")
 	cmd = exec.Command(args[0], args[1:]...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+	setProcessGroupId(cmd)
 
 	if *flagRunDir != "" {
 		cmd.Dir = *flagRunDir
