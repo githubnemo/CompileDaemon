@@ -80,6 +80,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/kballard/go-shellquote"
 )
 
 // Milliseconds to wait for the next job to begin after a file change
@@ -178,7 +179,11 @@ func build() bool {
 
 func runBuildCommand(c string) error {
 	c = strings.TrimSpace(c)
-	args := strings.Split(c, " ")
+	args, err := shellquote.Split(c)
+	if err != nil {
+		log.Println(failColor("Error while splitting build command:\n"), err)
+		return err
+	}
 	if len(args) == 0 {
 		return nil
 	}
@@ -257,7 +262,11 @@ func logger(pipeChan <-chan io.ReadCloser) {
 
 // Start the supplied command and return stdout and stderr pipes for logging.
 func startCommand(command string) (cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, err error) {
-	args := strings.Split(command, " ")
+	args, err := shellquote.Split(command)
+	if err != nil {
+		log.Println(failColor("Error while splitting start command:\n"), err)
+		return
+	}
 	cmd = exec.Command(args[0], args[1:]...)
 
 	if *flagRunDir != "" {
