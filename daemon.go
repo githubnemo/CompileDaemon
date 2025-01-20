@@ -256,9 +256,15 @@ func logger(pipeChan <-chan io.ReadCloser) {
 }
 
 // Start the supplied command and return stdout and stderr pipes for logging.
+//
+// Note that the command is run (on POSIX systems) with a process group id
+// and is also killed as such to prevent dangling processes and open sockets
+// by unkilled child processes.
 func startCommand(command string) (cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, err error) {
 	args := strings.Split(command, " ")
 	cmd = exec.Command(args[0], args[1:]...)
+
+	setProcessGroupId(cmd)
 
 	if *flagRunDir != "" {
 		cmd.Dir = *flagRunDir
@@ -354,7 +360,7 @@ func killProcess(process *os.Process) {
 func killProcessHard(process *os.Process) {
 	log.Println(okColor("Hard stopping the current process.."))
 
-	if err := process.Kill(); err != nil {
+	if err := terminateHard(process); err != nil {
 		log.Println(failColor("Warning: could not kill child process.  It may have already exited."))
 	}
 

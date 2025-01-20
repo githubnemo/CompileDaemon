@@ -10,6 +10,14 @@ var fatalSignals = []os.Signal{
 	os.Kill,
 }
 
+func setProcessGroupId(cmd *exec.Cmd) {
+	// TODO implement this for windows as well
+}
+
+func terminateHard(process *os.Process) error {
+	return process.Kill()
+}
+
 func terminateGracefully(process *os.Process) error {
 	return errors.New("terminateGracefully not implemented on windows")
 }
