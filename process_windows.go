@@ -10,6 +10,10 @@ var fatalSignals = []os.Signal{
 	os.Kill,
 }
 
+func terminateHard(process *os.Process) error {
+	return process.Kill()
+}
+
 func terminateGracefully(process *os.Process) error {
 	return errors.New("terminateGracefully not implemented on windows")
 }
