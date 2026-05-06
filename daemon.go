@@ -215,7 +215,8 @@ func builder(jobs <-chan string, buildStarted chan<- string, buildDone chan<- bo
 		return time.After(time.Duration(*flagWorkDelay) * time.Millisecond)
 	}
 
-	threshold := createThreshold()
+	// Trigger the initial build immediately on startup.
+	threshold := time.After(0)
 	eventPath := ""
 
 	for {
