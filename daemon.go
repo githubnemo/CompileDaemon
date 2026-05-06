@@ -49,6 +49,7 @@ There are command line options.
 	FILE WATCH
 	-polling          - Use polling instead of FS notifications to detect changes. Default is false
 	-polling-interval - Milliseconds of interval between polling file changes when polling option is selected
+	-work-delay       - Milliseconds to wait (debounce) before starting a build after file changes settle (must be > 0)
 
 	MISC
 	-color            - Enable colorized output
@@ -82,8 +83,9 @@ import (
 	"github.com/fatih/color"
 )
 
-// Milliseconds to wait for the next job to begin after a file change
-const WorkDelay = 900
+// DefaultWorkDelay is the default -work-delay value: milliseconds to wait before
+// starting a build after file changes (inrush / debounce).
+const DefaultWorkDelay = 900
 
 // Default pattern to match files which trigger a build
 const FilePattern = `(.+\.go|.+\.c)$`
@@ -135,6 +137,7 @@ var (
 	flagVerbose         = flag.Bool("verbose", false, "Be verbose about which directories are watched.")
 	flagPolling         = flag.Bool("polling", false, "Use polling method to watch file change instead of fsnotify")
 	flagPollingInterval = flag.Int("polling-interval", 100, "Milliseconds of interval between polling file changes when polling option is selected")
+	flagWorkDelay       = flag.Int("work-delay", DefaultWorkDelay, "Milliseconds to wait (debounce) before starting a build after file changes settle; must be > 0")
 
 	// initialized in main() due to custom type.
 	flagDirectories      globList
@@ -205,11 +208,11 @@ func matchesPattern(pattern *regexp.Regexp, file string) bool {
 }
 
 // Accept build jobs and start building when there are no jobs rushing in.
-// The inrush protection is WorkDelay milliseconds long, in this period
+// The inrush protection is -work-delay milliseconds long; in this period
 // every incoming job will reset the timer.
 func builder(jobs <-chan string, buildStarted chan<- string, buildDone chan<- bool) {
 	createThreshold := func() <-chan time.Time {
-		return time.After(time.Duration(WorkDelay * time.Millisecond))
+		return time.After(time.Duration(*flagWorkDelay) * time.Millisecond)
 	}
 
 	threshold := createThreshold()
@@ -408,6 +411,10 @@ func main() {
 	flag.Var(&flagBuildCommandList, "build", "Command to rebuild after changes, can be set more than once. Defaults to 'go build'.")
 
 	flag.Parse()
+
+	if *flagWorkDelay <= 0 {
+		log.Fatal("-work-delay must be a positive integer")
+	}
 
 	if !*flagLogPrefix {
 		log.SetFlags(0)

@@ -37,6 +37,7 @@ the env var `GO111MODULE=on`, which enables you to develop outside of
 | | | **file watch** |
 |`-polling=…` | false | Use polling instead of FS notifications to detect changes. Default is false
 |`-polling-interval=…` | 100 | Milliseconds of interval between polling file changes when polling option is selected
+|`-work-delay=…` | 900 | Milliseconds to wait (debounce) before starting a build after file changes settle; each new change resets the timer. Must be a positive integer.|
 | | | **misc** |
 |`-color=_` | false | Colorize the output of the daemon's status messages. |
 |`-log-prefix=_` | true | Prefix all child process output with stdout/stderr labels and log timestamps. |
